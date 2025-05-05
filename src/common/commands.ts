@@ -1,21 +1,7 @@
 import * as vscode from "vscode";
 import { ExecuteCommandRequest, LanguageClient } from "vscode-languageclient/node";
-import { getConfiguration } from "./vscodeapi";
-import { ISettings } from "./settings";
 
-const ISSUE_TRACKER = "https://github.com/astral-sh/ruff/issues";
-
-export async function executeAutofix(lsClient: LanguageClient, serverId: string) {
-  await executeCommand(lsClient, `${serverId}.applyAutofix`);
-}
-
-export async function executeFormat(lsClient: LanguageClient, serverId: string) {
-  await executeCommand(lsClient, `${serverId}.applyFormat`);
-}
-
-export async function executeOrganizeImports(lsClient: LanguageClient, serverId: string) {
-  await executeCommand(lsClient, `${serverId}.applyOrganizeImports`);
-}
+const ISSUE_TRACKER = "https://github.com/astral-sh/ty/issues";
 
 async function executeCommand(lsClient: LanguageClient, command: string) {
   const textEditor = vscode.window.activeTextEditor;
@@ -40,7 +26,7 @@ async function executeCommand(lsClient: LanguageClient, command: string) {
 }
 
 /**
- * Creates a debug information provider for the `ruff.printDebugInformation` command.
+ * Creates a debug information provider for the `ty.printDebugInformation` command.
  *
  * This will open a new editor window with the debug information considering the active editor.
  */
@@ -49,17 +35,8 @@ export function createDebugInformationProvider(
   serverId: string,
   context: vscode.ExtensionContext,
 ) {
-  let configuration = getConfiguration(serverId) as unknown as ISettings;
-  if (configuration.nativeServer === false || configuration.nativeServer === "off") {
-    return async () => {
-      vscode.window.showInformationMessage(
-        "Debug information is only available when using the native server",
-      );
-    };
-  }
-
   const contentProvider = new (class implements vscode.TextDocumentContentProvider {
-    readonly uri = vscode.Uri.parse("ruff-server-debug://debug");
+    readonly uri = vscode.Uri.parse("ty-server-debug://debug");
     readonly eventEmitter = new vscode.EventEmitter<vscode.Uri>();
 
     async provideTextDocumentContent(_uri: vscode.Uri): Promise<string> {
@@ -83,11 +60,7 @@ export function createDebugInformationProvider(
       };
       return await lsClient.sendRequest(ExecuteCommandRequest.type, params).then(
         (result) => {
-          if (typeof result === "string") {
-            return result;
-          }
-          // For older Ruff version, we don't return a string but log the information.
-          return "";
+          return result;
         },
         async () => {
           vscode.window.showErrorMessage(
@@ -104,7 +77,7 @@ export function createDebugInformationProvider(
   })();
 
   context.subscriptions.push(
-    vscode.workspace.registerTextDocumentContentProvider("ruff-server-debug", contentProvider),
+    vscode.workspace.registerTextDocumentContentProvider("ty-server-debug", contentProvider),
   );
 
   return async () => {
