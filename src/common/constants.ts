@@ -24,6 +24,18 @@ export const BUNDLED_PYTHON_SCRIPTS_DIR = path.join(EXTENSION_ROOT_DIR, "bundled
 export const BUNDLED_EXECUTABLE = path.join(BUNDLED_PYTHON_SCRIPTS_DIR, "libs", "bin", BINARY_NAME);
 
 /**
+ * Path to the Python script that tries to find the ty binary path.
+ *
+ * This should only be used as a fallback if there is no valid `ty` binary in
+ * the user's `path` setting or the import strategy isn't `useBundled`.
+ */
+export const FIND_BINARY_SCRIPT_PATH = path.join(
+  BUNDLED_PYTHON_SCRIPTS_DIR,
+  "tool",
+  "find_ty_binary_path.py",
+);
+
+/**
  * The subcommand for the `ty` binary that starts the language server.
  */
 export const SERVER_SUBCOMMAND = "server";

@@ -1,8 +1,6 @@
 import * as vscode from "vscode";
 import { LanguageClient } from "vscode-languageclient/node";
-import {
-  createDebugInformationProvider,
-} from "./common/commands";
+import { createDebugInformationProvider } from "./common/commands";
 import { LazyOutputChannel, logger } from "./common/logger";
 import { startServer, stopServer } from "./common/server";
 import { checkIfConfigurationChanged, getWorkspaceSettings } from "./common/settings";
@@ -88,7 +86,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const workspaceSettings = await getWorkspaceSettings(serverId, projectRoot);
 
       lsClient = await startServer(
-        projectRoot,
         workspaceSettings,
         serverId,
         serverName,
