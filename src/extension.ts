@@ -1,11 +1,14 @@
 import * as vscode from "vscode";
 import { LanguageClient } from "vscode-languageclient/node";
-import {
-  createDebugInformationProvider,
-} from "./common/commands";
+import { createDebugInformationProvider } from "./common/commands";
 import { LazyOutputChannel, logger } from "./common/logger";
+import { initializePython, onDidChangePythonInterpreter } from "./common/python";
 import { startServer, stopServer } from "./common/server";
-import { checkIfConfigurationChanged, getWorkspaceSettings } from "./common/settings";
+import {
+  checkIfConfigurationChanged,
+  getInterpreterFromSetting,
+  getWorkspaceSettings,
+} from "./common/settings";
 import { loadServerDefaults } from "./common/setup";
 import { registerLanguageStatusItem } from "./common/status";
 import { getProjectRoot } from "./common/utilities";
@@ -44,16 +47,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(traceOutputChannel);
   context.subscriptions.push(logger.channel);
 
-  context.subscriptions.push(
-    onDidChangeConfiguration((event) => {
-      if (event.affectsConfiguration("ruff.enable")) {
-        vscode.window.showWarningMessage(
-          "To enable or disable Ruff after changing the `enable` setting, you must restart VS Code.",
-        );
-      }
-    }),
-  );
-
   if (restartInProgress) {
     if (!restartQueued) {
       // Schedule a new restart after the current restart.
@@ -88,7 +81,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const workspaceSettings = await getWorkspaceSettings(serverId, projectRoot);
 
       lsClient = await startServer(
-        projectRoot,
         workspaceSettings,
         serverId,
         serverName,
@@ -106,6 +98,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
 
   context.subscriptions.push(
+    onDidChangePythonInterpreter(async () => {
+      await runServer();
+    }),
     onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {
       if (checkIfConfigurationChanged(e, serverId)) {
         await runServer();
@@ -128,6 +123,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   setImmediate(async () => {
+    if (vscode.workspace.isTrusted) {
+      const interpreter = getInterpreterFromSetting(serverId);
+      if (interpreter === undefined || interpreter.length === 0) {
+        logger.info(`Python extension loading`);
+        await initializePython(context.subscriptions);
+        logger.info(`Python extension loaded`);
+        return; // The `onDidChangePythonInterpreter` event will trigger the server start.
+      }
+    }
     await runServer();
   });
 }

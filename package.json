@@ -34,17 +34,20 @@
   "categories": [
     "Programming Languages"
   ],
-  "extensionDependencies": [],
+  "extensionDependencies": [
+    "ms-python.python"
+  ],
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
       "restrictedConfigurations": [
-        "ty.importStrategy"
+        "ty.importStrategy",
+        "ty.interpreter"
       ]
     },
     "virtualWorkspaces": {
       "supported": false,
-      "description": "Virtual Workspaces are not supported by the Ruff extension."
+      "description": "Virtual Workspaces are not supported by the ty extension."
     }
   },
   "activationEvents": [
@@ -81,7 +84,7 @@
         },
         "ty.importStrategy": {
           "default": "fromEnvironment",
-          "markdownDescription": "Strategy for loading the `ty` executable. `fromEnvironment` picks up Ruff from the environment, falling back to the bundled version if needed. `useBundled` uses the version bundled with the extension.",
+          "markdownDescription": "Strategy for loading the `ty` executable. `fromEnvironment` picks up ty from the environment, falling back to the bundled version if needed. `useBundled` uses the version bundled with the extension.",
           "enum": [
             "fromEnvironment",
             "useBundled"
@@ -92,6 +95,15 @@
           ],
           "scope": "window",
           "type": "string"
+        },
+        "ty.interpreter": {
+          "default": [],
+          "markdownDescription": "Path to a Python interpreter to use to find the `ty` executable.",
+          "scope": "resource",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "ty.logLevel": {
           "default": null,
@@ -148,6 +160,7 @@
     ]
   },
   "dependencies": {
+    "@vscode/python-extension": "^1.0.5",
     "fs-extra": "^11.1.1",
     "vscode-languageclient": "^8.1.0",
     "which": "^4.0.0"
@@ -160,8 +173,6 @@
     "@types/which": "^3.0.4",
     "@typescript-eslint/eslint-plugin": "^5.59.2",
     "@typescript-eslint/parser": "^5.59.2",
-    "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.4.1",
     "@vscode/vsce": "^3.1.1",
     "eslint": "^8.30.0",
     "eslint-plugin-prettier": "^4.2.1",
@@ -206,17 +217,5 @@
       "dist",
       "**/*.d.ts"
     ]
-  },
-  "eslintIgnore": [
-    "**/.nox/",
-    "**/.pytest_cache/",
-    "**/.ty_cache/",
-    "**/.venv/",
-    "**/__pycache__/",
-    "**/dist/",
-    "**/node_modules/",
-    "*.vsix",
-    "*.pyc",
-    "/bundled/libs/"
-  ]
+  }
 }

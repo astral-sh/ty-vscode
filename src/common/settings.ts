@@ -4,6 +4,8 @@ import {
   WorkspaceConfiguration,
   WorkspaceFolder,
 } from "vscode";
+import * as vscode from "vscode";
+import { getInterpreterDetails } from "./python";
 import { getConfiguration, getWorkspaceFolders } from "./vscodeapi";
 
 type ImportStrategy = "fromEnvironment" | "useBundled";
@@ -14,8 +16,8 @@ export interface ISettings {
   cwd: string;
   workspace: string;
   path: string[];
+  interpreter: string[];
   importStrategy: ImportStrategy;
-  showNotifications: string;
   logLevel?: LogLevel;
   logFile?: string;
 }
@@ -78,12 +80,22 @@ export async function getWorkspaceSettings(
   workspace: WorkspaceFolder,
 ): Promise<ISettings> {
   const config = getConfiguration(namespace, workspace.uri);
+
+  let interpreter: string[] = getInterpreterFromSetting(namespace, workspace) ?? [];
+  if (interpreter.length === 0) {
+    if (vscode.workspace.isTrusted) {
+      interpreter = (await getInterpreterDetails(workspace.uri)).path ?? [];
+    }
+  } else {
+    interpreter = resolveVariables(interpreter, workspace);
+  }
+
   return {
     cwd: workspace.uri.fsPath,
     workspace: workspace.uri.toString(),
     path: resolveVariables(config.get<string[]>("path") ?? [], workspace),
+    interpreter,
     importStrategy: config.get<ImportStrategy>("importStrategy") ?? "fromEnvironment",
-    showNotifications: config.get<string>("showNotifications") ?? "off",
     logLevel: config.get<LogLevel>("logLevel"),
     logFile: config.get<string>("logFile"),
   };
@@ -105,8 +117,8 @@ export async function getGlobalSettings(namespace: string): Promise<ISettings> {
     cwd: process.cwd(),
     workspace: process.cwd(),
     path: getGlobalValue<string[]>(config, "path", []),
+    interpreter: [],
     importStrategy: getGlobalValue<ImportStrategy>(config, "importStrategy", "fromEnvironment"),
-    showNotifications: getGlobalValue<string>(config, "showNotifications", "off"),
     logLevel: getOptionalGlobalValue<LogLevel>(config, "logLevel"),
     logFile: getOptionalGlobalValue<string>(config, "logFile"),
   };
@@ -118,8 +130,8 @@ export function checkIfConfigurationChanged(
 ): boolean {
   const settings = [
     `${namespace}.importStrategy`,
+    `${namespace}.interpreter`,
     `${namespace}.path`,
-    `${namespace}.showNotifications`,
     `${namespace}.logLevel`,
     `${namespace}.logFile`,
   ];

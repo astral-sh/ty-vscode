@@ -1,5 +1,5 @@
 <!--
-Thank you for contributing to Ruff! To help us out with reviewing, please consider the following:
+Thank you for contributing to ty! To help us out with reviewing, please consider the following:
 
 - Does this pull request include a summary of the change? (See below.)
 - Does this pull request include a descriptive title?
