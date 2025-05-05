@@ -7,6 +7,7 @@
 **/node_modules/
 *.vsix
 *.pyc
+.mypy_cache/**
 /bundled/libs/
 .vscode-test/
 out/

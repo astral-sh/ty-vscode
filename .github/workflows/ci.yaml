@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-22.04
+    env:
+      UV_SYSTEM_PYTHON: 1
+    steps:
+      - uses: extractions/setup-just@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: hynek/setup-cached-uv@v1
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: just install
+      - name: Run checks
+        run: just check

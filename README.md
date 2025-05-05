@@ -1,10 +1,10 @@
 # ty extension for Visual Studio Code
 
-[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![image](https://img.shields.io/pypi/v/ruff/0.11.2.svg)](https://pypi.python.org/pypi/ruff)
-[![image](https://img.shields.io/pypi/l/ruff/0.11.2.svg)](https://pypi.python.org/pypi/ruff)
-[![image](https://img.shields.io/pypi/pyversions/ruff/0.11.2.svg)](https://pypi.python.org/pypi/ruff)
-[![Actions status](https://github.com/astral-sh/ruff-vscode/workflows/CI/badge.svg)](https://github.com/astral-sh/ruff-vscode/actions)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ty/main/assets/badge/v2.json)](https://github.com/astral-sh/ty)
+[![image](https://img.shields.io/pypi/v/ty/0.0.0a1.svg)](https://pypi.python.org/pypi/ty)
+[![image](https://img.shields.io/pypi/l/ty/0.0.0a1.svg)](https://pypi.python.org/pypi/ty)
+[![image](https://img.shields.io/pypi/pyversions/ty/0.0.0a1.svg)](https://pypi.python.org/pypi/ty)
+[![Actions status](https://github.com/astral-sh/ty-vscode/workflows/CI/badge.svg)](https://github.com/astral-sh/ty-vscode/actions)
 
 A Visual Studio Code extension for [ty](https://github.com/astral-sh/ty), an extremely fast
 Python type checker and language server, written in Rust.
@@ -26,6 +26,6 @@ additional terms or conditions.
 
 <div align="center">
   <a target="_blank" href="https://astral.sh" style="background:none">
-    <img src="https://raw.githubusercontent.com/astral-sh/uv/main/assets/svg/Astral.svg" alt="Made by Astral">
+    <img height="24px" src="https://raw.githubusercontent.com/astral-sh/ty/main/assets/png/Astral.png">
   </a>
 </div>

@@ -19,7 +19,6 @@ let _status: LanguageStatusItem | undefined;
  * @param command The command to run when the status item is clicked.
  * @returns A disposable that should be disposed when the status item is no longer needed.
  */
-/* <<<<<<<<<<  be8822d9-742d-4b2f-a450-307005820191  >>>>>>>>>>> */
 export function registerLanguageStatusItem(id: string, name: string, command: string): Disposable {
   _status = createLanguageStatusItem(id, getDocumentSelector());
   _status.name = name;
