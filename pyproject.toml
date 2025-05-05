@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ruff-vscode"
+version = "2025.22.0"
+description = "A Visual Studio Code extension with support for the Ruff linter."
+authors = [{ name = "Charlie Marsh", email = "charlie.r.marsh@gmail.com" }]
+maintainers = [{ name = "Charlie Marsh", email = "charlie.r.marsh@gmail.com" }]
+requires-python = ">=3.7"
+license = "MIT"
+dependencies = ["packaging>=23.1", "ruff-lsp==0.0.62", "ruff==0.11.2"]
+
+[project.optional-dependencies]
+dev = ["mypy==1.2.0", "python-lsp-jsonrpc==1.0.0"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py37"
+extend-exclude = ["bundled/libs", "src/testFixture"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "Q", "UP", "I", "N"]
+
+[tool.mypy]
+files = ["bundled/tool", "build", "tests"]
+no_implicit_optional = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["debugpy.*", "lsprotocol.*", "pygls.*", "pylsp_jsonrpc.*"]
+ignore_missing_imports = true

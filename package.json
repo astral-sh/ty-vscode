@@ -1,0 +1,542 @@
+{
+  "name": "ruff",
+  "displayName": "Ruff",
+  "description": "A Visual Studio Code extension with support for the Ruff linter and formatter.",
+  "version": "2025.22.0",
+  "serverInfo": {
+    "name": "Ruff",
+    "module": "ruff"
+  },
+  "publisher": "charliermarsh",
+  "license": "MIT",
+  "homepage": "https://github.com/astral-sh/ruff-vscode",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/astral-sh/ruff-vscode.git"
+  },
+  "bugs": {
+    "url": "https://github.com/astral-sh/ruff-vscode/issues"
+  },
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#1e415e",
+    "theme": "dark"
+  },
+  "keywords": [
+    "python",
+    "linting",
+    "formatting",
+    "ruff"
+  ],
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Formatters"
+  ],
+  "extensionDependencies": [
+    "ms-python.python"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "restrictedConfigurations": [
+        "ruff.path",
+        "ruff.importStrategy",
+        "ruff.interpreter",
+        "ruff.configuration"
+      ]
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "Virtual Workspaces are not supported by the Ruff extension."
+    }
+  },
+  "activationEvents": [
+    "onLanguage:python",
+    "workspaceContains:*.py",
+    "workspaceContains:*.ipynb"
+  ],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "fmt": "prettier -w .",
+    "fmt-check": "prettier --check .",
+    "lint": "eslint src --ext ts --max-warnings=0",
+    "compile": "webpack",
+    "compile-tests": "tsc -p . --outDir out",
+    "tsc": "tsc --noEmit",
+    "package": "webpack --mode production --devtool source-map --config ./webpack.config.js",
+    "watch": "webpack --watch",
+    "vsce-package": "vsce package -o ruff.vsix",
+    "vscode:prepublish": "npm run package",
+    "pretest": "npm run compile-tests && npm run compile",
+    "tests": "vscode-test"
+  },
+  "contributes": {
+    "configuration": {
+      "properties": {
+        "ruff.nativeServer": {
+          "default": "auto",
+          "type": [
+            "boolean",
+            "string"
+          ],
+          "scope": "window",
+          "markdownDescription": "Whether to use the native language server, [`ruff-lsp`](https://github.com/astral-sh/ruff-lsp) or automatically decide between the two based on the Ruff version and extension settings.",
+          "enum": [
+            "on",
+            "off",
+            "auto",
+            true,
+            false
+          ],
+          "markdownEnumDescriptions": [
+            "Use the native language server. A warning will be displayed if deprecated settings are detected.",
+            "Use [`ruff-lsp`](https://github.com/astral-sh/ruff-lsp). A warning will be displayed if settings specific to the native server are detected.",
+            "Automatically select between the native language server and [`ruff-lsp`](https://github.com/astral-sh/ruff-lsp) based on the following conditions:\n1. If the Ruff version is >= `0.5.3`, use the native language server unless any deprecated settings are detected. In that case, show a warning and use [`ruff-lsp`](https://github.com/astral-sh/ruff-lsp) instead.\n2. If the Ruff version is < `0.5.3`, use [`ruff-lsp`](https://github.com/astral-sh/ruff-lsp). A warning will be displayed if settings specific to the native server are detected.",
+            "Same as `on`.",
+            "Same as `off`."
+          ]
+        },
+        "ruff.configuration": {
+          "default": null,
+          "markdownDescription": "Configuration overrides for Ruff. See [the documentation](https://docs.astral.sh/ruff/editors/settings/#configuration) for more details.\n\n**This setting is used only by the native server.**",
+          "scope": "window",
+          "type": [
+            "string",
+            "object"
+          ],
+          "oneOf": [
+            {
+              "type": "string",
+              "markdownDescription": "Path to a `ruff.toml` or `pyproject.toml` file to use for configuration."
+            },
+            {
+              "type": "object",
+              "markdownDescription": "Inline JSON configuration for Ruff settings (e.g., `{ \"line-length\": 100 }`). *Added in Ruff 0.9.8.*"
+            }
+          ]
+        },
+        "ruff.args": {
+          "default": [],
+          "markdownDescription": "Additional command-line arguments to pass to `ruff check`, e.g., `\"args\": [\"--config=/path/to/pyproject.toml\"]`. Supports a subset of Ruff's command-line arguments, ignoring those that are required to operate the LSP, like `--force-exclude` and `--verbose`.\n\n**This setting is not supported by the native server.**",
+          "markdownDeprecationMessage": "**Deprecated**: Please use `#ruff.lint.args` instead.",
+          "deprecationMessage": "Deprecated: Please use ruff.lint.args instead.",
+          "items": {
+            "type": "string"
+          },
+          "scope": "resource",
+          "type": "array"
+        },
+        "ruff.lint.args": {
+          "default": [],
+          "markdownDescription": "Additional command-line arguments to pass to `ruff check`, e.g., `\"args\": [\"--config=/path/to/pyproject.toml\"]`. Supports a subset of Ruff's command-line arguments, ignoring those that are required to operate the LSP, like `--force-exclude` and `--verbose`.\n\n**This setting is not supported by the native server.**",
+          "markdownDeprecationMessage": "**Deprecated**: This setting is only used by [`ruff-lsp`](https://github.com/astral-sh/ruff-lsp) which is deprecated in favor of the native language server. Refer to the [migration guide](https://docs.astral.sh/ruff/editors/migration) for more information.",
+          "deprecationMessage": "Deprecated: This setting is only used by ruff-lsp which is deprecated in favor of the native language server.",
+          "items": {
+            "type": "string"
+          },
+          "scope": "resource",
+          "type": "array"
+        },
+        "ruff.lint.preview": {
+          "default": null,
+          "markdownDescription": "Enable [preview mode](https://docs.astral.sh/ruff/settings/#lint_preview) for the linter; enables unstable rules and fixes.\n\n**This setting is used only by the native server.**",
+          "scope": "resource",
+          "type": "boolean"
+        },
+        "ruff.lint.select": {
+          "default": null,
+          "markdownDescription": "Set rule codes to enable. Use `ALL` to enable all rules. See [the documentation](https://docs.astral.sh/ruff/settings/#lint_select) for more details.\n\n**This setting is used only by the native server.**",
+          "examples": [
+            [
+              "E4",
+              "E7",
+              "E9",
+              "F"
+            ]
+          ],
+          "items": {
+            "type": "string"
+          },
+          "scope": "resource",
+          "type": "array"
+        },
+        "ruff.lint.extendSelect": {
+          "default": null,
+          "markdownDescription": "Enable additional rule codes on top of existing configuration, instead of overriding it. Use `ALL` to enable all rules.\n\n**This setting is used only by the native server.**",
+          "items": {
+            "type": "string"
+          },
+          "scope": "resource",
+          "type": "array"
+        },
+        "ruff.lint.ignore": {
+          "default": null,
+          "markdownDescription": "Set rule codes to disable. See [the documentation](https://docs.astral.sh/ruff/settings/#lint_ignore) for more details.\n\n**This setting is used only by the native server.**",
+          "items": {
+            "type": "string"
+          },
+          "scope": "resource",
+          "type": "array"
+        },
+        "ruff.run": {
+          "default": "onType",
+          "markdownDescription": "Run Ruff on every keystroke (`onType`) or on save (`onSave`).\n\n**This setting is not supported by the native server.**",
+          "markdownDeprecationMessage": "**Deprecated**: Please use `#ruff.lint.run` instead.",
+          "deprecationMessage": "Deprecated: Please use ruff.lint.run instead.",
+          "enum": [
+            "onType",
+            "onSave"
+          ],
+          "enumDescriptions": [
+            "Run Ruff on every keystroke.",
+            "Run Ruff on save."
+          ],
+          "scope": "window",
+          "type": "string"
+        },
+        "ruff.lint.run": {
+          "default": "onType",
+          "markdownDescription": "Run Ruff on every keystroke (`onType`) or on save (`onSave`).\n\n**This setting is not supported by the native server.**",
+          "enum": [
+            "onType",
+            "onSave"
+          ],
+          "enumDescriptions": [
+            "Run Ruff on every keystroke.",
+            "Run Ruff on save."
+          ],
+          "markdownDeprecationMessage": "**Deprecated**: This setting is only used by [`ruff-lsp`](https://github.com/astral-sh/ruff-lsp) which is deprecated in favor of the native language server. Refer to the [migration guide](https://docs.astral.sh/ruff/editors/migration) for more information.",
+          "deprecationMessage": "Deprecated: This setting is only used by ruff-lsp which is deprecated in favor of the native language server.",
+          "scope": "window",
+          "type": "string"
+        },
+        "ruff.lint.enable": {
+          "default": true,
+          "markdownDescription": "Whether to enable linting. Set to `false` to use Ruff exclusively as a formatter.",
+          "scope": "window",
+          "type": "boolean"
+        },
+        "ruff.format.args": {
+          "default": [],
+          "markdownDescription": "Additional command-line arguments to pass to `ruff format`, e.g., `\"args\": [\"--config=/path/to/pyproject.toml\"]`. Supports a subset of Ruff's command-line arguments, ignoring those that are required to operate the LSP, like `--force-exclude` and `--verbose`.\n\n**This setting is not supported by the native server.**",
+          "markdownDeprecationMessage": "**Deprecated**: This setting is only used by [`ruff-lsp`](https://github.com/astral-sh/ruff-lsp) which is deprecated in favor of the native language server. Refer to the [migration guide](https://docs.astral.sh/ruff/editors/migration) for more information.",
+          "deprecationMessage": "Deprecated: This setting is only used by ruff-lsp which is deprecated in favor of the native language server.",
+          "items": {
+            "type": "string"
+          },
+          "scope": "resource",
+          "type": "array"
+        },
+        "ruff.format.preview": {
+          "default": null,
+          "markdownDescription": "Enable [preview mode](https://docs.astral.sh/ruff/settings/#format_preview) for the formatter; enables unstable formatting.\n\n**This setting is used only by the native server.**",
+          "scope": "resource",
+          "type": "boolean"
+        },
+        "ruff.path": {
+          "default": [],
+          "markdownDescription": "Path to a custom `ruff` executable, e.g., `[\"/path/to/ruff\"]`.",
+          "scope": "resource",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ruff.importStrategy": {
+          "default": "fromEnvironment",
+          "markdownDescription": "Strategy for loading the `ruff` executable. `fromEnvironment` picks up Ruff from the environment, falling back to the bundled version if needed. `useBundled` uses the version bundled with the extension.",
+          "enum": [
+            "fromEnvironment",
+            "useBundled"
+          ],
+          "enumDescriptions": [
+            "Use `ruff` from environment, falling back to the bundled version if `ruff` is not found.",
+            "Always use the bundled version of `ruff`."
+          ],
+          "scope": "window",
+          "type": "string"
+        },
+        "ruff.interpreter": {
+          "default": [],
+          "markdownDescription": "Path to a Python interpreter to use to find the `ruff` executable.",
+          "scope": "resource",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ruff.enable": {
+          "default": true,
+          "markdownDescription": "Whether to enable the Ruff extension.",
+          "scope": "window",
+          "type": "boolean"
+        },
+        "ruff.organizeImports": {
+          "default": true,
+          "markdownDescription": "Whether to register Ruff as capable of handling `source.organizeImports` actions.",
+          "scope": "window",
+          "type": "boolean"
+        },
+        "ruff.fixAll": {
+          "default": true,
+          "markdownDescription": "Whether to register Ruff as capable of handling `source.fixAll` actions.",
+          "scope": "window",
+          "type": "boolean"
+        },
+        "ruff.codeAction.fixViolation": {
+          "scope": "resource",
+          "type": "object",
+          "default": {
+            "enable": true
+          },
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "default": true,
+              "markdownDescription": "Enable the Quick Fix."
+            }
+          },
+          "additionalProperties": false,
+          "markdownDescription": "Whether to display Quick Fix actions to autofix violations."
+        },
+        "ruff.codeAction.disableRuleComment": {
+          "scope": "resource",
+          "type": "object",
+          "default": {
+            "enable": true
+          },
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "default": true,
+              "markdownDescription": "Enable the Quick Fix."
+            }
+          },
+          "additionalProperties": false,
+          "markdownDescription": "Whether to display Quick Fix actions to disable rules via `noqa` suppression comments."
+        },
+        "ruff.showSyntaxErrors": {
+          "default": true,
+          "markdownDescription": "Whether to show syntax error diagnostics.",
+          "scope": "window",
+          "type": "boolean"
+        },
+        "ruff.ignoreStandardLibrary": {
+          "default": true,
+          "markdownDescription": "Whether to ignore files that are inferred to be part of the Python standard library.",
+          "markdownDeprecationMessage": "**Deprecated**: This setting is only used by [`ruff-lsp`](https://github.com/astral-sh/ruff-lsp) which is deprecated in favor of the native language server. Refer to the [migration guide](https://docs.astral.sh/ruff/editors/migration) for more information.",
+          "deprecationMessage": "Deprecated: This setting is only used by ruff-lsp which is deprecated in favor of the native language server.",
+          "scope": "window",
+          "type": "boolean"
+        },
+        "ruff.logLevel": {
+          "default": null,
+          "markdownDescription": "Controls the log level of the language server.\n\n**This setting is used only by the native server.**",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "debug",
+            "trace"
+          ],
+          "scope": "application",
+          "type": "string"
+        },
+        "ruff.logFile": {
+          "default": null,
+          "markdownDescription": "Path to the log file for the language server.\n\n**This setting is used only by the native server.**",
+          "scope": "application",
+          "type": "string"
+        },
+        "ruff.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "markdownDescription": "Traces the communication between VSCode and the ruff-lsp."
+        },
+        "ruff.showNotifications": {
+          "default": "off",
+          "markdownDescription": "Controls when notifications are shown by this extension.",
+          "markdownDeprecationMessage": "**Deprecated**: This setting is only used by [`ruff-lsp`](https://github.com/astral-sh/ruff-lsp) which is deprecated in favor of the native language server. Refer to the [migration guide](https://docs.astral.sh/ruff/editors/migration) for more information.",
+          "deprecationMessage": "Deprecated: This setting is only used by ruff-lsp which is deprecated in favor of the native language server.",
+          "enum": [
+            "off",
+            "onError",
+            "onWarning",
+            "always"
+          ],
+          "enumDescriptions": [
+            "All notifications are turned off, any errors or warning are still available in the logs.",
+            "Notifications are shown only in the case of an error.",
+            "Notifications are shown for errors and warnings.",
+            "Notifications are show for anything that the server chooses to show."
+          ],
+          "scope": "window",
+          "type": "string"
+        },
+        "ruff.exclude": {
+          "default": null,
+          "items": {
+            "type": "string"
+          },
+          "markdownDescription": "Set paths for the linter and formatter to ignore. See [the documentation](https://docs.astral.sh/ruff/settings/#lint_exclude) for more details.\n\n**This setting is used only by the native server.**",
+          "type": "array",
+          "scope": "resource"
+        },
+        "ruff.lineLength": {
+          "default": null,
+          "minimum": 1,
+          "maximum": 320,
+          "markdownDescription": "Set the [line length](https://docs.astral.sh/ruff/settings/#line-length) used by the formatter and linter. Must be greater than 0 and less than or equal to 320.\n\n**This setting is used only by the native server.**",
+          "scope": "resource",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "ruff.configurationPreference": {
+          "enum": [
+            "editorFirst",
+            "filesystemFirst",
+            "editorOnly"
+          ],
+          "enumDescriptions": [
+            "The default strategy - configuration set in the editor takes priority over configuration set in `.toml` files.",
+            "An alternative strategy - configuration set in `.toml` files takes priority over configuration set in the editor.",
+            "An alternative strategy - configuration set in `.toml` files is ignored entirely."
+          ],
+          "markdownDescription": "The preferred method of resolving configuration in the editor with local configuration from `.toml` files.\n\n**This setting is used only by the native server.**",
+          "scope": "resource",
+          "type": "string",
+          "default": "editorFirst"
+        },
+        "ruff.enableExperimentalFormatter": {
+          "default": false,
+          "markdownDescription": "Controls whether Ruff registers as capable of code formatting.",
+          "markdownDeprecationMessage": "**Deprecated**: Formatter capabilities are now always enabled.",
+          "deprecationMessage": "Deprecated: Formatter capabilities are now always enabled.",
+          "scope": "window",
+          "type": "boolean"
+        }
+      }
+    },
+    "commands": [
+      {
+        "title": "Fix all auto-fixable problems",
+        "category": "Ruff",
+        "command": "ruff.executeAutofix"
+      },
+      {
+        "title": "Format document",
+        "category": "Ruff",
+        "command": "ruff.executeFormat"
+      },
+      {
+        "title": "Format imports",
+        "category": "Ruff",
+        "command": "ruff.executeOrganizeImports"
+      },
+      {
+        "title": "Print debug information (native server only)",
+        "category": "Ruff",
+        "command": "ruff.debugInformation"
+      },
+      {
+        "title": "Restart Server",
+        "category": "Ruff",
+        "command": "ruff.restart"
+      },
+      {
+        "title": "Show client logs",
+        "category": "Ruff",
+        "command": "ruff.showLogs"
+      },
+      {
+        "title": "Show server logs",
+        "category": "Ruff",
+        "command": "ruff.showServerLogs"
+      }
+    ]
+  },
+  "dependencies": {
+    "@vscode/python-extension": "^1.0.5",
+    "fs-extra": "^11.1.1",
+    "vscode-languageclient": "^8.1.0",
+    "which": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.1",
+    "@types/glob": "^8.1.0",
+    "@types/node": "^20.3.1",
+    "@types/vscode": "1.75.0",
+    "@types/which": "^3.0.4",
+    "@typescript-eslint/eslint-plugin": "^5.59.2",
+    "@typescript-eslint/parser": "^5.59.2",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "@vscode/vsce": "^3.1.1",
+    "eslint": "^8.30.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "glob": "^10.2.2",
+    "ovsx": "^0.10.0",
+    "prettier": "^2.8.8",
+    "ts-loader": "^9.4.2",
+    "typescript": "^5.1.3",
+    "webpack": "^5.82.0",
+    "webpack-cli": "^5.0.2"
+  },
+  "prettier": {
+    "printWidth": 100,
+    "tabWidth": 2,
+    "trailingComma": "all"
+  },
+  "eslintConfig": {
+    "root": true,
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "ecmaVersion": 6,
+      "sourceType": "module"
+    },
+    "plugins": [
+      "@typescript-eslint",
+      "prettier"
+    ],
+    "rules": {
+      "prettier/prettier": "error",
+      "@typescript-eslint/naming-convention": "warn",
+      "@typescript-eslint/semi": "warn",
+      "curly": "warn",
+      "eqeqeq": [
+        "warn",
+        "smart"
+      ],
+      "no-throw-literal": "warn",
+      "semi": "off"
+    },
+    "ignorePatterns": [
+      "out",
+      "dist",
+      "**/*.d.ts"
+    ]
+  },
+  "eslintIgnore": [
+    "**/.nox/",
+    "**/.pytest_cache/",
+    "**/.ruff_cache/",
+    "**/.venv/",
+    "**/__pycache__/",
+    "**/dist/",
+    "**/node_modules/",
+    "*.vsix",
+    "*.pyc",
+    "/bundled/libs/"
+  ]
+}
