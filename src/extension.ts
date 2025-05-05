@@ -1,35 +1,19 @@
 import * as vscode from "vscode";
 import { LanguageClient } from "vscode-languageclient/node";
+import {
+  createDebugInformationProvider,
+} from "./common/commands";
 import { LazyOutputChannel, logger } from "./common/logger";
-import {
-  checkVersion,
-  initializePython,
-  onDidChangePythonInterpreter,
-  resolveInterpreter,
-} from "./common/python";
 import { startServer, stopServer } from "./common/server";
-import {
-  checkIfConfigurationChanged,
-  getInterpreterFromSetting,
-  getWorkspaceSettings,
-  ISettings,
-  checkNotebookCodeActionsOnSave,
-} from "./common/settings";
+import { checkIfConfigurationChanged, getWorkspaceSettings } from "./common/settings";
 import { loadServerDefaults } from "./common/setup";
-import { registerLanguageStatusItem, updateStatus } from "./common/status";
+import { registerLanguageStatusItem } from "./common/status";
+import { getProjectRoot } from "./common/utilities";
 import {
-  getConfiguration,
   onDidChangeConfiguration,
   onDidGrantWorkspaceTrust,
   registerCommand,
 } from "./common/vscodeapi";
-import { getProjectRoot } from "./common/utilities";
-import {
-  executeAutofix,
-  executeFormat,
-  executeOrganizeImports,
-  createDebugInformationProvider,
-} from "./common/commands";
 
 let lsClient: LanguageClient | undefined;
 let restartInProgress = false;
@@ -70,14 +54,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
   );
 
-  const { enable } = getConfiguration(serverId) as unknown as ISettings;
-  if (!enable) {
-    logger.info(
-      "Extension is disabled. To enable, change `ruff.enable` to `true` and restart VS Code.",
-    );
-    return;
-  }
-
   if (restartInProgress) {
     if (!restartQueued) {
       // Schedule a new restart after the current restart.
@@ -111,38 +87,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const projectRoot = await getProjectRoot();
       const workspaceSettings = await getWorkspaceSettings(serverId, projectRoot);
 
-      if (vscode.workspace.isTrusted) {
-        if (workspaceSettings.interpreter.length === 0) {
-          updateStatus(
-            vscode.l10n.t("Please select a Python interpreter."),
-            vscode.LanguageStatusSeverity.Error,
-          );
-          logger.error(
-            "Python interpreter missing:\r\n" +
-              "[Option 1] Select Python interpreter using the ms-python.python.\r\n" +
-              `[Option 2] Set an interpreter using "${serverId}.interpreter" setting.\r\n` +
-              "Please use Python 3.7 or greater.",
-          );
-          return;
-        }
-
-        logger.info(`Using interpreter: ${workspaceSettings.interpreter.join(" ")}`);
-        const resolvedEnvironment = await resolveInterpreter(workspaceSettings.interpreter);
-        if (resolvedEnvironment === undefined) {
-          updateStatus(
-            vscode.l10n.t("Python interpreter not found."),
-            vscode.LanguageStatusSeverity.Error,
-          );
-          logger.error(
-            "Unable to find any Python environment for the interpreter path:",
-            workspaceSettings.interpreter.join(" "),
-          );
-          return;
-        } else if (!checkVersion(resolvedEnvironment)) {
-          return;
-        }
-      }
-
       lsClient = await startServer(
         projectRoot,
         workspaceSettings,
@@ -162,9 +106,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
 
   context.subscriptions.push(
-    onDidChangePythonInterpreter(async () => {
-      await runServer();
-    }),
     onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {
       if (checkIfConfigurationChanged(e, serverId)) {
         await runServer();
@@ -179,24 +120,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     registerCommand(`${serverId}.showServerLogs`, () => {
       outputChannel.show();
     }),
-    registerCommand(`${serverId}.restart`, async () => {
-      await runServer();
-    }),
-    registerCommand(`${serverId}.executeAutofix`, async () => {
-      if (lsClient) {
-        await executeAutofix(lsClient, serverId);
-      }
-    }),
-    registerCommand(`${serverId}.executeFormat`, async () => {
-      if (lsClient) {
-        await executeFormat(lsClient, serverId);
-      }
-    }),
-    registerCommand(`${serverId}.executeOrganizeImports`, async () => {
-      if (lsClient) {
-        await executeOrganizeImports(lsClient, serverId);
-      }
-    }),
     registerCommand(
       `${serverId}.debugInformation`,
       createDebugInformationProvider(getClient, serverId, context),
@@ -204,18 +127,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     registerLanguageStatusItem(serverId, serverName, `${serverId}.showLogs`),
   );
 
-  checkNotebookCodeActionsOnSave(serverId);
-
   setImmediate(async () => {
-    if (vscode.workspace.isTrusted) {
-      const interpreter = getInterpreterFromSetting(serverId);
-      if (interpreter === undefined || interpreter.length === 0) {
-        logger.info(`Python extension loading`);
-        await initializePython(context.subscriptions);
-        logger.info(`Python extension loaded`);
-        return; // The `onDidChangePythonInterpreter` event will trigger the server start.
-      }
-    }
     await runServer();
   });
 }
