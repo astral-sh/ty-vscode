@@ -25,6 +25,6 @@ additional terms or conditions.
 
 <div align="center">
   <a target="_blank" href="https://astral.sh" style="background:none">
-    <img height="24px" src="https://raw.githubusercontent.com/astral-sh/ty/main/assets/png/Astral.png">
+    <img height="24px" src="https://raw.githubusercontent.com/astral-sh/ty-vscode/main/assets/png/Astral.png">
   </a>
 </div>
