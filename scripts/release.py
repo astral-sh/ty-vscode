@@ -9,7 +9,7 @@ This script does the following things:
 """
 
 # /// script
-# requires-python = "==3.7.*"
+# requires-python = ">=3.8"
 # dependencies = ["packaging", "requests", "rich-argparse", "tomli", "tomlkit"]
 #
 # [tool.uv]
@@ -22,7 +22,6 @@ import datetime as dt
 import json
 import re
 import subprocess
-import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -115,8 +114,8 @@ def update_pyproject_toml(versions: Versions) -> None:
 
     existing_dependencies = project_table["dependencies"]
     assert isinstance(existing_dependencies, tomlkit.items.Array)
-    assert len(existing_dependencies) == 3
-    existing_dependencies[2] = tomlkit.string(f"ty=={versions.latest_ty}")
+    assert len(existing_dependencies) == 1
+    existing_dependencies[0] = tomlkit.string(f"ty=={versions.latest_ty}")
 
     with PYPROJECT_TOML_PATH.open("w") as pyproject_file:
         tomlkit.dump(pyproject_toml, pyproject_file)
@@ -132,27 +131,12 @@ def bump_package_json_version(new_version: Version) -> None:
         package_json_file.write("\n")
 
 
-README_DESCRIPTION_REGEX = re.compile(r"The extension ships with `ty==\d+\.\d+\.\d+`\.")
-README_SVG_REGEX = re.compile(r"ty/\d+\.\d+\.\d+\.svg")
+README_SVG_REGEX = re.compile(r"ty/\d+\.\d+\.\d+a\d+\.svg")
 
 
 def update_readme(latest_ty: Version) -> None:
     """Ensure the README is up to date with respect to our pinned ty version."""
     readme_text = README_PATH.read_text()
-
-    description_matches = list(README_DESCRIPTION_REGEX.finditer(readme_text))
-    assert len(description_matches) == 1, (
-        f"Unexpected number of matches for `README_DESCRIPTION_REGEX` "
-        f"found in README.md ({len(description_matches)}). Perhaps the release script "
-        f"is out of date?"
-    )
-    readme_text = "".join(
-        [
-            readme_text[: description_matches[0].start()],
-            f"The extension ships with `ty=={latest_ty}`.",
-            readme_text[description_matches[0].end() :],
-        ]
-    )
 
     assert README_SVG_REGEX.search(readme_text), (
         "No matches found for `README_SVG_REGEX` in README.md. "
@@ -163,39 +147,9 @@ def update_readme(latest_ty: Version) -> None:
     README_PATH.write_text(readme_text)
 
 
-def update_changelog(versions: Versions) -> None:
-    """Add a changelog entry describing the updated dependency pins."""
-    with CHANGELOG_PATH.open() as changelog_file:
-        changelog_lines = list(changelog_file)
-
-    assert changelog_lines[4] == f"## {versions.existing_vscode_version}\n", (
-        f"Unexpected content in CHANGELOG.md ({changelog_lines[4]!r}) "
-        f"-- perhaps the release script is out of date?"
-    )
-
-    if versions.latest_ty != versions.existing_ty_pin:
-        changelog_entry_middle = (
-            f"This release upgrades the bundled ty version to `v{versions.latest_ty}`."
-        )
-    else:
-        changelog_entry_middle = ""
-
-    changelog_entry = textwrap.dedent(f"""\
-
-        ## {versions.new_vscode_version}
-
-        {changelog_entry_middle}
-
-        **Full Changelog**: https://github.com/astral-sh/ty-vscode/compare/{versions.existing_vscode_version}...{versions.new_vscode_version}
-        """)
-
-    changelog_lines[3:3] = changelog_entry.splitlines(keepends=True)
-    CHANGELOG_PATH.write_text("".join(changelog_lines))
-
-
 def lock_requirements() -> None:
     """Update this package's lockfiles."""
-    for path in "requirements-dev.txt", "requirements.txt":
+    for path in ["requirements.txt"]:
         Path(path).unlink()
     subprocess.run(["just", "lock"], check=True)
 
@@ -232,7 +186,6 @@ def prepare_release(versions: Versions, *, prepare_pr: bool) -> None:
     update_pyproject_toml(versions)
     bump_package_json_version(versions.new_vscode_version)
     update_readme(versions.latest_ty)
-    update_changelog(versions)
     lock_requirements()
     if prepare_pr:
         commit_changes(versions)
