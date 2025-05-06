@@ -88,20 +88,20 @@ jobs:
         with:
           fetch-depth: ${{ env.FETCH_DEPTH }}
 
-      # Install Python dependencies (including Ruff's native binary).
+      # Install Python dependencies (including ty's native binary).
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
 
-      # ARM builds on macOS, which should select Ruff's universal binary.
+      # ARM builds on macOS, which should select ty's universal binary.
       - run: arch -arm64 python -m pip install -t ./bundled/libs --implementation py --no-deps --upgrade -r ./requirements.txt
         if: ${{ startsWith(matrix.os, 'macos') && startsWith(matrix.target, 'aarch64') }}
 
-      # x86_64 builds on macOS, which should select Ruff's x86_64 binary.
+      # x86_64 builds on macOS, which should select ty's x86_64 binary.
       - run: arch -x86_64 python -m pip install -t ./bundled/libs --implementation py --no-deps --upgrade -r ./requirements.txt
         if: ${{ startsWith(matrix.os, 'macos') && startsWith(matrix.target, 'x86_64') }}
 
-      # ARM builds on Ubuntu, which should select Ruff's ARM binary.
+      # ARM builds on Ubuntu, which should select ty's ARM binary.
       - uses: uraimo/run-on-arch-action@v2
         if: ${{ startsWith(matrix.os, 'ubuntu') && !startsWith(matrix.target, 'x86_64') && !endsWith(matrix.target, 'musl') }}
         with:
@@ -114,7 +114,7 @@ jobs:
           run: |
             python3 -m pip install -t ./bundled/libs --implementation py --no-deps --upgrade -r ./requirements.txt
 
-      # Alpine builds, which should select Ruff's musl binaries.
+      # Alpine builds, which should select ty's musl binaries.
       - uses: jirutka/setup-alpine@v1
         if: ${{ startsWith(matrix.os, 'ubuntu') && endsWith(matrix.target, 'musl') }}
         with:
@@ -153,10 +153,10 @@ jobs:
       # Build the extension.
       - name: Package Extension (release)
         if: "startsWith(github.ref, 'refs/tags/')"
-        run: npx vsce package -o "./dist/ruff-${{ matrix.code-target }}.vsix" --target ${{ matrix.code-target }}
+        run: npx vsce package -o "./dist/ty-${{ matrix.code-target }}.vsix" --target ${{ matrix.code-target }}
       - name: Package Extension (nightly)
         if: "!startsWith(github.ref, 'refs/tags/')"
-        run: npx vsce package -o "./dist/ruff-${{ matrix.code-target }}.vsix" --target ${{ matrix.code-target }} --pre-release
+        run: npx vsce package -o "./dist/ty-${{ matrix.code-target }}.vsix" --target ${{ matrix.code-target }} --pre-release
 
       # Upload the extension.
       - name: Upload artifacts
@@ -226,10 +226,10 @@ jobs:
       # Publish to the Code Marketplace.
       - name: Publish Extension (Code Marketplace, release)
         if: "startsWith(github.ref, 'refs/tags/')"
-        run: npx vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ruff-*.vsix
+        run: npx vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ty-*.vsix
       - name: Publish Extension (Code Marketplace, nightly)
         if: "!startsWith(github.ref, 'refs/tags/')"
-        run: npx vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ruff-*.vsix --pre-release
+        run: npx vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ty-*.vsix --pre-release
 
   publish-openvsx:
     name: "Publish (OpenVSX)"
@@ -291,9 +291,9 @@ jobs:
       # Publish to OpenVSX.
       - name: Publish Extension (OpenVSX, release)
         if: "startsWith(github.ref, 'refs/tags/')"
-        run: npx ovsx publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ruff-*.vsix
+        run: npx ovsx publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ty-*.vsix
         timeout-minutes: 2
       - name: Publish Extension (OpenVSX, nightly)
         if: "!startsWith(github.ref, 'refs/tags/')"
-        run: npx ovsx publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ruff-*.vsix --pre-release
+        run: npx ovsx publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ty-*.vsix --pre-release
         timeout-minutes: 2

@@ -5,7 +5,7 @@ class ExtensionLogger {
   /**
    * The output channel used to log messages for the extension.
    */
-  readonly channel = vscode.window.createOutputChannel("Ruff", { log: true });
+  readonly channel = vscode.window.createOutputChannel("ty", { log: true });
 
   /**
    * Whether the extension is running in a CI environment.
@@ -50,7 +50,7 @@ class ExtensionLogger {
 /**
  * The logger used by the extension.
  *
- * This will log the messages to the "Ruff" output channel, optionally logging them
+ * This will log the messages to the "ty" output channel, optionally logging them
  * to the console if the extension is running in a CI environment (e.g., GitHub Actions).
  *
  * This should mainly be used for logging messages that are intended for the user.

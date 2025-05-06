@@ -4,12 +4,12 @@ import sysconfig
 from pathlib import Path
 from typing import Optional
 
-RUFF_EXE = "ruff.exe" if sys.platform == "win32" else "ruff"
+TY_EXE = "ty.exe" if sys.platform == "win32" else "ty"
 
 
-def find_ruff_binary_path() -> Optional[Path]:
-    """Return the ruff binary path if it exists, `None` otherwise."""
-    bin_path = Path(sysconfig.get_path("scripts")) / RUFF_EXE
+def find_ty_binary_path() -> Optional[Path]:
+    """Return the ty binary path if it exists, `None` otherwise."""
+    bin_path = Path(sysconfig.get_path("scripts")) / TY_EXE
     if bin_path.is_file():
         return bin_path
 
@@ -22,7 +22,7 @@ def find_ruff_binary_path() -> Optional[Path]:
     else:
         user_scheme = "posix_user"
 
-    scripts_path = Path(sysconfig.get_path("scripts", scheme=user_scheme)) / RUFF_EXE
+    scripts_path = Path(sysconfig.get_path("scripts", scheme=user_scheme)) / TY_EXE
     if scripts_path.is_file():
         return scripts_path
 
@@ -35,8 +35,8 @@ if __name__ == "__main__":
     #
     # But not all paths are representable by the local encoding.
     # The node process calling this script defaults to UTF8, so let's do the same here.
-    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore [attr-defined] # We never reconfigure stdout, thus it is guaranteed to not be Any
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore
 
-    ruff_binary_path = find_ruff_binary_path()
-    if ruff_binary_path:
-        print(ruff_binary_path, flush=True)
+    ty_binary_path = find_ty_binary_path()
+    if ty_binary_path:
+        print(ty_binary_path, flush=True)

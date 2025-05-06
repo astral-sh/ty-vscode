@@ -1,9 +1,9 @@
 """
-Script for automating changes necessary for `ruff-vscode` releases.
+Script for automating changes necessary for `ty-vscode` releases.
 
 This script does the following things:
 - Bumps the version of this project in `pyproject.toml` and `package.json`
-- Bumps the `ruff` and `ruff-lsp` dependency pins in `pyproject.toml`
+- Bumps the `ty` dependency pin in `pyproject.toml`
 - Updates the changelog and README
 - Updates the package's lockfiles
 """
@@ -42,13 +42,11 @@ CHANGELOG_PATH = Path("CHANGELOG.md")
 
 
 @dataclass(frozen=True)
-class RuffVersions:
+class Versions:
     existing_vscode_version: Version
     new_vscode_version: Version
-    existing_ruff_pin: Version
-    latest_ruff: Version
-    existing_ruff_lsp_pin: Version
-    latest_ruff_lsp: Version
+    existing_ty_pin: Version
+    latest_ty: Version
 
 
 def existing_dependency_pin(
@@ -69,47 +67,43 @@ def latest_pypi_version(project_name: str) -> Version:
     return Version(pypi_json.json()["info"]["version"])
 
 
-def get_ruff_versions(
+def get_ty_versions(
     *,
-    new_ruff_vscode_version: Version | None,
-    new_ruff_version: Version | None,
-    new_ruff_lsp_version: Version | None,
-) -> RuffVersions:
+    new_ty_vscode_version: Version | None,
+    new_ty_version: Version | None,
+) -> Versions:
     """
     Obtain metadata about the project; figure out what the new metadata should be.
     """
     with PYPROJECT_TOML_PATH.open("rb") as pyproject_file:
         pyproject_toml = tomli.load(pyproject_file)
 
-    existing_ruff_vscode_version = Version(pyproject_toml["project"]["version"])
+    existing_ty_vscode_version = Version(pyproject_toml["project"]["version"])
 
-    if new_ruff_vscode_version is None:
+    if new_ty_vscode_version is None:
         major = dt.datetime.now(dt.timezone.utc).year
-        minor = existing_ruff_vscode_version.minor + 2
-        new_ruff_vscode_version = Version(f"{major}.{minor}.0")
+        minor = existing_ty_vscode_version.minor + 2
+        new_ty_vscode_version = Version(f"{major}.{minor}.0")
 
     dependencies = {
         requirement.name: requirement.specifier
         for requirement in map(Requirement, pyproject_toml["project"]["dependencies"])
     }
 
-    return RuffVersions(
-        existing_vscode_version=existing_ruff_vscode_version,
-        new_vscode_version=new_ruff_vscode_version,
-        existing_ruff_pin=existing_dependency_pin(dependencies, "ruff"),
-        latest_ruff=(new_ruff_version or latest_pypi_version("ruff")),
-        existing_ruff_lsp_pin=existing_dependency_pin(dependencies, "ruff-lsp"),
-        latest_ruff_lsp=(new_ruff_lsp_version or latest_pypi_version("ruff-lsp")),
+    return Versions(
+        existing_vscode_version=existing_ty_vscode_version,
+        new_vscode_version=new_ty_vscode_version,
+        existing_ty_pin=existing_dependency_pin(dependencies, "ty"),
+        latest_ty=(new_ty_version or latest_pypi_version("ty")),
     )
 
 
-def update_pyproject_toml(versions: RuffVersions) -> None:
+def update_pyproject_toml(versions: Versions) -> None:
     """Update metadata in `pyproject.toml`.
 
     Specifically, we update:
     - The version of this project itself
-    - The `ruff` version we pin to in our dependencies list
-    - The `ruff-lsp` version we pin to in our dependencies list
+    - The `ty` version we pin to in our dependencies list
     """
     with PYPROJECT_TOML_PATH.open("rb") as pyproject_file:
         pyproject_toml = tomlkit.load(pyproject_file)
@@ -122,8 +116,7 @@ def update_pyproject_toml(versions: RuffVersions) -> None:
     existing_dependencies = project_table["dependencies"]
     assert isinstance(existing_dependencies, tomlkit.items.Array)
     assert len(existing_dependencies) == 3
-    existing_dependencies[1] = tomlkit.string(f"ruff-lsp=={versions.latest_ruff_lsp}")
-    existing_dependencies[2] = tomlkit.string(f"ruff=={versions.latest_ruff}")
+    existing_dependencies[2] = tomlkit.string(f"ty=={versions.latest_ty}")
 
     with PYPROJECT_TOML_PATH.open("w") as pyproject_file:
         tomlkit.dump(pyproject_toml, pyproject_file)
@@ -139,14 +132,12 @@ def bump_package_json_version(new_version: Version) -> None:
         package_json_file.write("\n")
 
 
-README_DESCRIPTION_REGEX = re.compile(
-    r"The extension ships with `ruff==\d+\.\d+\.\d+`\."
-)
-README_SVG_REGEX = re.compile(r"ruff/\d+\.\d+\.\d+\.svg")
+README_DESCRIPTION_REGEX = re.compile(r"The extension ships with `ty==\d+\.\d+\.\d+`\.")
+README_SVG_REGEX = re.compile(r"ty/\d+\.\d+\.\d+\.svg")
 
 
-def update_readme(latest_ruff: Version) -> None:
-    """Ensure the README is up to date with respect to our pinned Ruff version."""
+def update_readme(latest_ty: Version) -> None:
+    """Ensure the README is up to date with respect to our pinned ty version."""
     readme_text = README_PATH.read_text()
 
     description_matches = list(README_DESCRIPTION_REGEX.finditer(readme_text))
@@ -158,7 +149,7 @@ def update_readme(latest_ruff: Version) -> None:
     readme_text = "".join(
         [
             readme_text[: description_matches[0].start()],
-            f"The extension ships with `ruff=={latest_ruff}`.",
+            f"The extension ships with `ty=={latest_ty}`.",
             readme_text[description_matches[0].end() :],
         ]
     )
@@ -167,12 +158,12 @@ def update_readme(latest_ruff: Version) -> None:
         "No matches found for `README_SVG_REGEX` in README.md. "
         "Perhaps the release script is out of date?"
     )
-    readme_text = README_SVG_REGEX.sub(f"ruff/{latest_ruff}.svg", readme_text)
+    readme_text = README_SVG_REGEX.sub(f"ty/{latest_ty}.svg", readme_text)
 
     README_PATH.write_text(readme_text)
 
 
-def update_changelog(versions: RuffVersions) -> None:
+def update_changelog(versions: Versions) -> None:
     """Add a changelog entry describing the updated dependency pins."""
     with CHANGELOG_PATH.open() as changelog_file:
         changelog_lines = list(changelog_file)
@@ -182,24 +173,9 @@ def update_changelog(versions: RuffVersions) -> None:
         f"-- perhaps the release script is out of date?"
     )
 
-    if (
-        versions.latest_ruff != versions.existing_ruff_pin
-        and versions.latest_ruff_lsp != versions.existing_ruff_lsp_pin
-    ):
+    if versions.latest_ty != versions.existing_ty_pin:
         changelog_entry_middle = (
-            f"This release upgrades the bundled Ruff version "
-            f"to `v{versions.latest_ruff}`, and the bundled `ruff-lsp` version "
-            f"to `{versions.latest_ruff_lsp}`."
-        )
-    elif versions.latest_ruff != versions.existing_ruff_pin:
-        changelog_entry_middle = (
-            f"This release upgrades the bundled Ruff version "
-            f"to `v{versions.latest_ruff}`."
-        )
-    elif versions.latest_ruff_lsp != versions.existing_ruff_lsp_pin:
-        changelog_entry_middle = (
-            f"This release upgrades the bundled `ruff-lsp` version "
-            f"to `v{versions.latest_ruff_lsp}`."
+            f"This release upgrades the bundled ty version to `v{versions.latest_ty}`."
         )
     else:
         changelog_entry_middle = ""
@@ -210,7 +186,7 @@ def update_changelog(versions: RuffVersions) -> None:
 
         {changelog_entry_middle}
 
-        **Full Changelog**: https://github.com/astral-sh/ruff-vscode/compare/{versions.existing_vscode_version}...{versions.new_vscode_version}
+        **Full Changelog**: https://github.com/astral-sh/ty-vscode/compare/{versions.existing_vscode_version}...{versions.new_vscode_version}
         """)
 
     changelog_lines[3:3] = changelog_entry.splitlines(keepends=True)
@@ -224,7 +200,7 @@ def lock_requirements() -> None:
     subprocess.run(["just", "lock"], check=True)
 
 
-def commit_changes(versions: RuffVersions) -> None:
+def commit_changes(versions: Versions) -> None:
     """Create a new `git` branch, check it out, and commit the changes."""
     original_branch = subprocess.run(
         ["git", "branch", "--show-current"], text=True, check=True, capture_output=True
@@ -232,10 +208,7 @@ def commit_changes(versions: RuffVersions) -> None:
 
     new_branch = f"release-{versions.new_vscode_version}"
 
-    commit_body = (
-        f"Bump ruff to {versions.latest_ruff} "
-        f"and ruff-lsp to {versions.latest_ruff_lsp}"
-    )
+    commit_body = f"Bump ty to {versions.latest_ty}"
     commit_command = [
         "git",
         "commit",
@@ -254,11 +227,11 @@ def commit_changes(versions: RuffVersions) -> None:
         raise
 
 
-def prepare_release(versions: RuffVersions, *, prepare_pr: bool) -> None:
-    """Make all necessary changes for a new `ruff-vscode` release."""
+def prepare_release(versions: Versions, *, prepare_pr: bool) -> None:
+    """Make all necessary changes for a new `ty-vscode` release."""
     update_pyproject_toml(versions)
     bump_package_json_version(versions.new_vscode_version)
-    update_readme(versions.latest_ruff)
+    update_readme(versions.latest_ty)
     update_changelog(versions)
     lock_requirements()
     if prepare_pr:
@@ -283,26 +256,17 @@ def main() -> None:
         ),
     )
     parser.add_argument(
-        "--new-ruff",
+        "--new-ty",
         type=Version,
         help=(
-            "Which version to bump the `ruff` dependency pin to. "
-            "Defaults to the latest version available on PyPI."
-        ),
-    )
-    parser.add_argument(
-        "--new-ruff-lsp",
-        type=Version,
-        help=(
-            "Which version to bump the `ruff-lsp` dependency pin to. "
+            "Which version to bump the `ty` dependency pin to. "
             "Defaults to the latest version available on PyPI."
         ),
     )
     args = parser.parse_args()
-    versions = get_ruff_versions(
-        new_ruff_vscode_version=args.new_version,
-        new_ruff_version=args.new_ruff,
-        new_ruff_lsp_version=args.new_ruff_lsp,
+    versions = get_ty_versions(
+        new_ty_vscode_version=args.new_version,
+        new_ty_version=args.new_ty,
     )
     prepare_release(versions, prepare_pr=args.prepare_pr)
 
