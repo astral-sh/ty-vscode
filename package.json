@@ -138,11 +138,6 @@
     },
     "commands": [
       {
-        "title": "Print debug information",
-        "category": "ty",
-        "command": "ty.debugInformation"
-      },
-      {
         "title": "Restart server",
         "category": "ty",
         "command": "ty.restart"

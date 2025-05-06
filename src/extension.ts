@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
 import { LanguageClient } from "vscode-languageclient/node";
-import { createDebugInformationProvider } from "./common/commands";
 import { LazyOutputChannel, logger } from "./common/logger";
 import { initializePython, onDidChangePythonInterpreter } from "./common/python";
 import { startServer, stopServer } from "./common/server";
@@ -21,10 +20,6 @@ import {
 let lsClient: LanguageClient | undefined;
 let restartInProgress = false;
 let restartQueued = false;
-
-function getClient(): LanguageClient | undefined {
-  return lsClient;
-}
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   // This is required to get server name and module. This should be
@@ -115,10 +110,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     registerCommand(`${serverId}.showServerLogs`, () => {
       outputChannel.show();
     }),
-    registerCommand(
-      `${serverId}.debugInformation`,
-      createDebugInformationProvider(getClient, serverId, context),
-    ),
     registerLanguageStatusItem(serverId, serverName, `${serverId}.showLogs`),
   );
 
