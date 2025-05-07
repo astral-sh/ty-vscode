@@ -104,6 +104,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     onDidGrantWorkspaceTrust(async () => {
       await runServer();
     }),
+    registerCommand(`${serverId}.restart`, async () => {
+      await runServer();
+    }),
     registerCommand(`${serverId}.showLogs`, () => {
       logger.channel.show();
     }),

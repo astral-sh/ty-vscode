@@ -12,6 +12,12 @@ type ImportStrategy = "fromEnvironment" | "useBundled";
 
 type LogLevel = "error" | "warn" | "info" | "debug" | "trace";
 
+type Experimental = {
+  completions?: {
+    enable?: boolean;
+  };
+};
+
 export interface ISettings {
   cwd: string;
   workspace: string;
@@ -20,6 +26,7 @@ export interface ISettings {
   importStrategy: ImportStrategy;
   logLevel?: LogLevel;
   logFile?: string;
+  experimental?: Experimental;
 }
 
 export function getExtensionSettings(namespace: string): Promise<ISettings[]> {
@@ -98,6 +105,7 @@ export async function getWorkspaceSettings(
     importStrategy: config.get<ImportStrategy>("importStrategy") ?? "fromEnvironment",
     logLevel: config.get<LogLevel>("logLevel"),
     logFile: config.get<string>("logFile"),
+    experimental: config.get<Experimental>("experimental"),
   };
 }
 
@@ -121,6 +129,7 @@ export async function getGlobalSettings(namespace: string): Promise<ISettings> {
     importStrategy: getGlobalValue<ImportStrategy>(config, "importStrategy", "fromEnvironment"),
     logLevel: getOptionalGlobalValue<LogLevel>(config, "logLevel"),
     logFile: getOptionalGlobalValue<string>(config, "logFile"),
+    experimental: getOptionalGlobalValue<Experimental>(config, "experimental"),
   };
 }
 
@@ -134,6 +143,7 @@ export function checkIfConfigurationChanged(
     `${namespace}.path`,
     `${namespace}.logLevel`,
     `${namespace}.logFile`,
+    `${namespace}.experimental.completions.enable`,
   ];
   return settings.some((s) => e.affectsConfiguration(s));
 }
