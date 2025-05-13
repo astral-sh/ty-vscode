@@ -43,16 +43,13 @@ Currently, the extension supports the following features:
 Once installed in Visual Studio Code, ty will automatically execute when you open or edit a
 Python or Jupyter Notebook file.
 
-If you want to disable ty, you can [disable this extension](https://code.visualstudio.com/docs/editor/extension-marketplace#_disable-an-extension)
-per workspace in Visual Studio Code.
+If you don't want to use ty for a specific workspace, [disable this extension](https://code.visualstudio.com/docs/editor/extension-marketplace#_disable-an-extension)
+in VS code.
 
 ## Untrusted Workspace
 
-The extension supports loading in an [untrusted workspace](https://code.visualstudio.com/docs/editor/workspace-trust).
-When the workspace is untrusted, the extension will always use the bundled executable of
-the `ty` binary regardless of any other settings.
-
-The following settings are not supported in an untrusted workspace:
+The extension supports [untrusted workspace](https://code.visualstudio.com/docs/editor/workspace-trust).
+For untrusted workspaces, the extension always uses the bundled ty executable, ignoring the following settings:
 
 - [`ty.importStrategy`](#importstrategy)
 - [`ty.interpreter`](#interpreter)
@@ -60,135 +57,7 @@ The following settings are not supported in an untrusted workspace:
 
 ## Settings
 
-### `experimental`
-
-This setting is used to enable or disable experimental features in the language server.
-
-#### `completions.enable`
-
-Whether to enable completions from the language server.
-
-**Default value**: `false`
-
-**Type**: `boolean`
-
-**Example usage**:
-
-```json
-{
-  "ty.experimental.completions.enable": true
-}
-```
-
-### `importStrategy`
-
-Strategy for loading the `ty` executable.
-
-- `fromEnvironment` finds ty in the environment, falling back to the bundled version
-- `useBundled` uses the version bundled with the extension
-
-**Default value**: `"fromEnvironment"`
-
-**Type**: `"fromEnvironment" | "useBundled"`
-
-**Example usage**:
-
-```json
-{
-  "ty.importStrategy": "useBundled"
-}
-```
-
-### `interpreter`
-
-A list of paths to Python interpreters. Even though this is a list, only the first interpreter is
-used.
-
-The interpreter path is used to find the `ty` executable when
-[`ty.importStrategy`](#importstrategy) is set to `fromEnvironment`.
-
-**Default value**: `[]`
-
-**Type**: `string[]`
-
-**Example usage**:
-
-```json
-{
-  "ty.interpreter": ["/home/user/.local/bin/python"]
-}
-```
-
-### `logFile`
-
-Path to the log file to use for the language server.
-
-If not set, logs will be written to stderr.
-
-**Default value**: `null`
-
-**Type**: `string`
-
-**Example usage**:
-
-```json
-{
-  "ty.logFile": "~/path/to/ty.log"
-}
-```
-
-### `logLevel`
-
-The log level to use for the language server.
-
-**Default value**: `"info"`
-
-**Type**: `"trace" | "debug" | "info" | "warn" | "error"`
-
-**Example usage**:
-
-```json
-{
-  "ty.logLevel": "debug"
-}
-```
-
-### `path`
-
-A list of path to `ty` executables.
-
-The first executable in the list which is exists is used. This setting takes precedence over the
-[`ty.importStrategy`](#importstrategy) setting.
-
-**Default value**: `[]`
-
-**Type**: `string[]`
-
-**Example usage**:
-
-```json
-{
-  "ty.path": ["/home/user/.local/bin/ty"]
-}
-```
-
-### `trace.server`
-
-The trace level for the language server. Refer to the [LSP
-specification](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#traceValue)
-for more information.
-
-**Default value**: `"off"`
-
-**Type**: `"off" | "messages" | "verbose"`
-
-**Example usage**:
-
-```json
-{
-  "ty.trace.server": "messages"
-}
-```
+See [settings](https://github.com/astral-sh/ty/blob/main/docs/reference/editor-settings.md) for an enumeration of all supported settings.
 
 ## Commands
 
@@ -200,10 +69,10 @@ for more information.
 
 ## Requirements
 
-This extension requires a version of the VSCode Python extension that supports Python 3.7+. ty
-itself is compatible with Python 3.7 to 3.13.
+This extension requires a version of the VSCode Python extension that supports Python 3.8+. ty
+itself is compatible with Python 3.8 to 3.13.
 
-## Troubleshooting
+## Getting help
 
 If you encounter any issues with the extension or the language server, please refer to the
 logs in the corresponding output channel in VS Code. The extension logs are in the "ty"
