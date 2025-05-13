@@ -138,7 +138,7 @@
             "verbose"
           ],
           "default": "off",
-          "markdownDescription": "Traces the communication between VSCode and the ty-lsp."
+          "markdownDescription": "Traces the communication between VSCode and the ty language server."
         }
       }
     },
