@@ -51,9 +51,9 @@ in VS code.
 The extension supports [untrusted workspace](https://code.visualstudio.com/docs/editor/workspace-trust).
 For untrusted workspaces, the extension always uses the bundled ty executable, ignoring the following settings:
 
-- [`ty.importStrategy`](#importstrategy)
-- [`ty.interpreter`](#interpreter)
-- [`ty.path`](#path)
+- [`ty.importStrategy`](https://github.com/astral-sh/ty/blob/main/docs/reference/editor-settings.md#importstrategy)
+- [`ty.interpreter`](https://github.com/astral-sh/ty/blob/main/docs/reference/editor-settings.md#interpreter)
+- [`ty.path`](https://github.com/astral-sh/ty/blob/main/docs/reference/editor-settings.md#path)
 
 ## Settings
 
