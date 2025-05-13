@@ -7,17 +7,36 @@
 A Visual Studio Code extension for [ty](https://github.com/astral-sh/ty), an extremely fast
 Python type checker and language server, written in Rust.
 
-TODO: Should we change the warning to be specific to the extension?
-TODO: Add something about disabling the Pylance server to make sure ty is used for LSP features
-
 > [!WARNING]
 >
-> ty is in preview and is not ready for production use.
+> This extension uses the preview version of ty and is not ready for production use.
 >
 > We're working hard to make ty stable and feature-complete, but until then, expect to encounter bugs,
 > missing features, and fatal errors.
 
 The extension ships with `ty==0.0.0a7`.
+
+## Features
+
+Currently, the extension supports the following features:
+
+- Showing diagnostics in the editor
+- Hover type information for symbols
+- Go to type definition
+- Inlay hints for assignment targets
+- [Completions](#completionsenable)
+
+> [!NOTE]
+>
+> If you want to test the language server features like completions, go to type definition, etc., it's
+> recommended to disable the language server from the [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) (if installed) by adding the
+> following [setting](https://code.visualstudio.com/docs/python/settings-reference#_intellisense-engine-settings) to your `settings.json`:
+>
+> ```json
+> {
+>   "python.languageServer": "None"
+> }
+> ```
 
 ## Usage
 
@@ -57,7 +76,7 @@ Whether to enable completions from the language server.
 
 ```json
 {
-    "ty.experimental.completions.enable": true
+  "ty.experimental.completions.enable": true
 }
 ```
 
@@ -76,7 +95,7 @@ Strategy for loading the `ty` executable.
 
 ```json
 {
-    "ty.importStrategy": "useBundled"
+  "ty.importStrategy": "useBundled"
 }
 ```
 
@@ -96,7 +115,7 @@ The interpreter path is used to find the `ty` executable when
 
 ```json
 {
-    "ty.interpreter": ["/home/user/.local/bin/python"]
+  "ty.interpreter": ["/home/user/.local/bin/python"]
 }
 ```
 
@@ -114,7 +133,7 @@ If not set, logs will be written to stderr.
 
 ```json
 {
-    "ty.logFile": "~/path/to/ty.log"
+  "ty.logFile": "~/path/to/ty.log"
 }
 ```
 
@@ -130,7 +149,7 @@ The log level to use for the language server.
 
 ```json
 {
-    "ty.logLevel": "debug"
+  "ty.logLevel": "debug"
 }
 ```
 
@@ -149,7 +168,7 @@ The first executable in the list which is exists is used. This setting takes pre
 
 ```json
 {
-    "ty.path": ["/home/user/.local/bin/ty"]
+  "ty.path": ["/home/user/.local/bin/ty"]
 }
 ```
 
@@ -167,7 +186,7 @@ for more information.
 
 ```json
 {
-    "ty.trace.server": "messages"
+  "ty.trace.server": "messages"
 }
 ```
 
@@ -237,12 +256,12 @@ bar as a permanent item.
 <img
     width="677"
     alt="Instructions to pin 'ty' status item on VS Code editor toolbar"
-    src="https://github.com/user-attachments/assets/fae75b6a-ae3f-4933-ad9c-61c6374f435b"
+    src="./assets/png/how_to_pin_ty_in_vscode_toolbar.png"
 >
 </details>
 
 The status bar item displays the status of the language server. It can also be
-clicked to open the Ruff output channel.
+clicked to open the ty output channel.
 
 ## License
 
