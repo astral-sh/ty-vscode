@@ -131,8 +131,10 @@ def bump_package_json_version(new_version: Version) -> None:
         package_json_file.write("\n")
 
 
-README_DESCRIPTION_REGEX = re.compile(r"The extension ships with `ty==\d+\.\d+\.\d+`\.")
-README_SVG_REGEX = re.compile(r"ty/\d+\.\d+\.\d+\.svg")
+README_DESCRIPTION_REGEX = re.compile(
+    r"The extension ships with `ty==\d+\.\d+\.\d+(a\d+)?`\."
+)
+README_SVG_REGEX = re.compile(r"ty/\d+\.\d+\.\d+(a\d+)?\.svg")
 
 
 def update_readme(latest_ty: Version) -> None:
