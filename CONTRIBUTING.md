@@ -21,7 +21,7 @@ and the language server log messages in the debug console under "ty" and "ty Lan
 
 ## Release
 
-- Run `just release` (or manually `uv run --python=3.7 scripts/release.py`).
+- Run `just release` (or manually `uv run --python=3.8 scripts/release.py`).
   (Run `just release --help` for information on what this script does,
   and its various options.)
 - Check the changes the script made, copy-edit the changelog, and commit the changes.
