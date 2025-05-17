@@ -18,6 +18,12 @@ type Experimental = {
   };
 };
 
+type PythonSettings = {
+  ty?: {
+    disableLanguageServices?: boolean;
+  };
+};
+
 export interface ISettings {
   cwd: string;
   workspace: string;
@@ -27,6 +33,7 @@ export interface ISettings {
   logLevel?: LogLevel;
   logFile?: string;
   experimental?: Experimental;
+  python?: PythonSettings;
 }
 
 export function getExtensionSettings(namespace: string): Promise<ISettings[]> {
@@ -82,6 +89,20 @@ export function getInterpreterFromSetting(namespace: string, scope?: Configurati
   return config.get<string[]>("interpreter");
 }
 
+function getPythonSettings(workspace?: WorkspaceFolder): PythonSettings | undefined {
+  const config = getConfiguration("python", workspace?.uri);
+  const disableLanguageServices = config.get<boolean>("ty.disableLanguageServices");
+  if (disableLanguageServices !== undefined) {
+    return {
+      ty: {
+        disableLanguageServices,
+      },
+    };
+  } else {
+    return undefined;
+  }
+}
+
 export async function getWorkspaceSettings(
   namespace: string,
   workspace: WorkspaceFolder,
@@ -106,6 +127,7 @@ export async function getWorkspaceSettings(
     logLevel: config.get<LogLevel>("logLevel"),
     logFile: config.get<string>("logFile"),
     experimental: config.get<Experimental>("experimental"),
+    python: getPythonSettings(workspace),
   };
 }
 
@@ -130,6 +152,7 @@ export async function getGlobalSettings(namespace: string): Promise<ISettings> {
     logLevel: getOptionalGlobalValue<LogLevel>(config, "logLevel"),
     logFile: getOptionalGlobalValue<string>(config, "logFile"),
     experimental: getOptionalGlobalValue<Experimental>(config, "experimental"),
+    python: getPythonSettings(),
   };
 }
 
@@ -144,6 +167,7 @@ export function checkIfConfigurationChanged(
     `${namespace}.logLevel`,
     `${namespace}.logFile`,
     `${namespace}.experimental.completions.enable`,
+    "python.ty.disableLanguageServices",
   ];
   return settings.some((s) => e.affectsConfiguration(s));
 }
