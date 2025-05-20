@@ -134,6 +134,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       await runServer();
     }),
     onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {
+      // TODO(dhruvmanila): Notify the server with `DidChangeConfigurationNotification` and let
+      // the server pull in the updated configuration.
       if (checkIfConfigurationChanged(e, serverId)) {
         await runServer();
       }
