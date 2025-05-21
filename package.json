@@ -142,6 +142,9 @@
         }
       }
     },
+    "configurationDefaults": {
+      "python.languageServer": "None"
+    },
     "commands": [
       {
         "title": "Restart server",
