@@ -9,11 +9,6 @@
   separateMajorMinor: false,
   prHourlyLimit: 10,
   enabledManagers: ["github-actions", "npm"],
-  npm: {
-    // The default for this package manager is to only search for `package.json` files
-    // found at the repository root: https://docs.renovatebot.com/modules/manager/npm/#file-matching
-    fileMatch: ["^playground/.*package\\.json$"],
-  },
   packageRules: [
     // Pin GitHub Actions to immutable SHAs.
     {
