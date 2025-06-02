@@ -7,7 +7,7 @@
 A Visual Studio Code extension for [ty](https://github.com/astral-sh/ty), an extremely fast
 Python type checker and language server, written in Rust.
 
-> [!WARNING]
+> **Warning:**
 >
 > This extension uses the preview version of ty and is not ready for production use.
 >
@@ -26,7 +26,7 @@ Currently, the extension supports the following features:
 - Inlay hints for assignment targets
 - [Completions](#completionsenable)
 
-> [!NOTE]
+> **Note:**
 >
 > If you want to test the language server features like completions, go to type definition, etc., it's
 > recommended to disable the language server from the [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) (if installed) by adding the
