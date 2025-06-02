@@ -207,8 +207,8 @@ export async function startServer(
         params.type === MessageType.Error
           ? vscode.window.showErrorMessage
           : params.type === MessageType.Warning
-            ? vscode.window.showWarningMessage
-            : vscode.window.showInformationMessage;
+          ? vscode.window.showWarningMessage
+          : vscode.window.showInformationMessage;
       showMessageMethod(params.message, "Show Logs").then((selection) => {
         if (selection) {
           outputChannel.show();
