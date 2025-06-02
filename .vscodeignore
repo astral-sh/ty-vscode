@@ -27,3 +27,6 @@ out/
 .vscode-test/
 tsconfig.json
 webpack.config.js
+eslint.config.mjs
+pyproject.toml
+.mypy_cache/

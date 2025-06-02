@@ -15,6 +15,8 @@ import { logger } from "./logger";
 import { getExtensionSettings, getGlobalSettings, ISettings } from "./settings";
 import { updateStatus } from "./status";
 import { getDocumentSelector } from "./utilities";
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 import which = require("which");
 
 export type IInitializationOptions = {
@@ -135,10 +137,10 @@ async function createServer(
   const binaryPath = await findBinaryPath(settings);
   logger.info(`Found executable at ${binaryPath}`);
 
-  let serverArgs: string[] = [SERVER_SUBCOMMAND];
+  const serverArgs: string[] = [SERVER_SUBCOMMAND];
   logger.info(`Server run command: ${[binaryPath, ...serverArgs].join(" ")}`);
 
-  let serverOptions = {
+  const serverOptions = {
     command: binaryPath,
     args: serverArgs,
     options: { cwd: settings.cwd, env: process.env },
@@ -174,7 +176,7 @@ export async function startServer(
   const globalSettings = await getGlobalSettings(serverId);
   logger.info(`Global settings: ${JSON.stringify(globalSettings, null, 4)}`);
 
-  let newLSClient = await createServer(
+  const newLSClient = await createServer(
     workspaceSettings,
     serverId,
     serverName,
@@ -207,8 +209,8 @@ export async function startServer(
         params.type === MessageType.Error
           ? vscode.window.showErrorMessage
           : params.type === MessageType.Warning
-          ? vscode.window.showWarningMessage
-          : vscode.window.showInformationMessage;
+            ? vscode.window.showWarningMessage
+            : vscode.window.showInformationMessage;
       showMessageMethod(params.message, "Show Logs").then((selection) => {
         if (selection) {
           outputChannel.show();
