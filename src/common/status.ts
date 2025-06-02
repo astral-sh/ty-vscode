@@ -40,7 +40,7 @@ export function updateStatus(
   detail?: string,
 ): void {
   if (_status) {
-    let name = _status.name;
+    const name = _status.name;
     _status.text = status && status.length > 0 ? `${name}: ${status}` : `${name}`;
     _status.severity = severity;
     _status.busy = busy ?? false;
