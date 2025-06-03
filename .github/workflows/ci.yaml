@@ -9,8 +9,6 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    env:
-      UV_SYSTEM_PYTHON: 1
     steps:
       - uses: extractions/setup-just@v2
         env:
