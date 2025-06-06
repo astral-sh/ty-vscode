@@ -1,5 +1,7 @@
 # Troubleshooting ty extension and the language server
 
+## Logs
+
 If you encounter any issues with the extension or the language server, please refer to the
 logs in the corresponding output channel in VS Code. The extension logs are in the "ty"
 output channel and the language server logs are in the "ty Language Server" output channel.
@@ -44,16 +46,16 @@ This will be visible in the "ty Language Server Trace" output channel. The diffe
 and response, while `verbose` also logs the request parameters sent by the client and the
 response result sent by the server.
 
+## Status bar
+
 The extension also displays certain information in the status bar. This can be pinned to the status
 bar as a permanent item.
 
-<details><summary><b>How to pin the ty status item in VS Code toolbar?</b></summary>
-<img
-    width="677"
-    alt="Instructions to pin 'ty' status item on VS Code editor toolbar"
-    src="./assets/png/how_to_pin_ty_in_vscode_toolbar.png"
->
-</details>
+To pin the ty status item in the VS Code toolbar, follow these steps:
+1. Click on the `{}` icon in Python's status item
+2. Click on the pin icon next to the "ty" section in the menu
+
+<img width="677" alt="Instructions on how to pin 'ty' status item in the VS Code editor toolbar" src="./assets/png/how_to_pin_ty_in_vscode_toolbar.png">
 
 The status bar item displays the status of the language server. It can also be
 clicked to open the ty output channel.
