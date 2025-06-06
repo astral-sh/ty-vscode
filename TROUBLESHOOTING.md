@@ -55,6 +55,7 @@ The extension also displays certain information in the status bar. This can be p
 bar as a permanent item.
 
 To pin the ty status item in the VS Code toolbar, follow these steps:
+
 1. Click on the `{}` icon in Python's status item
 2. Click on the pin icon next to the "ty" section in the menu
 
