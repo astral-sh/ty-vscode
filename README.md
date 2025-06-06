@@ -24,7 +24,18 @@ Currently, the extension supports the following features:
 - Hover type information for symbols
 - Go to type definition
 - Inlay hints for assignment targets
-- [Completions](#completionsenable)
+- Completions
+
+> **Note:**
+>
+> Completions is an experimental feature and requires explicit opt-in to be enabled via the
+> following setting in your `settings.json`:
+>
+> ```json
+> {
+>   "ty.experimental.completions.enable": true
+> }
+> ```
 
 > **Note:**
 >
