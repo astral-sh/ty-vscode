@@ -1,5 +1,8 @@
 # Troubleshooting ty extension and the language server
 
+This document describes how to troubleshoot issues with the ty extension or the
+language server in Visual Studio Code.
+
 ## Logs
 
 If you encounter any issues with the extension or the language server, please refer to the
