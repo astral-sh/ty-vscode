@@ -73,14 +73,11 @@
   "contributes": {
     "configuration": {
       "properties": {
-        "ty.path": {
-          "default": [],
-          "markdownDescription": "Path to a custom `ty` executable, e.g., `[\"/path/to/ty\"]`.",
-          "scope": "resource",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+        "python.ty.disableLanguageServices": {
+          "default": false,
+          "markdownDescription": "Whether to disable all language services for ty like completions, hover, goto definition, etc.",
+          "scope": "window",
+          "type": "boolean"
         },
         "ty.experimental.completions.enable": {
           "default": false,
@@ -129,6 +126,15 @@
           "markdownDescription": "Path to the log file for the language server.",
           "scope": "application",
           "type": "string"
+        },
+        "ty.path": {
+          "default": [],
+          "markdownDescription": "Path to a custom `ty` executable, e.g., `[\"/path/to/ty\"]`.",
+          "scope": "resource",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "ty.trace.server": {
           "type": "string",
