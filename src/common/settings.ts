@@ -12,12 +12,6 @@ type ImportStrategy = "fromEnvironment" | "useBundled";
 
 type LogLevel = "error" | "warn" | "info" | "debug" | "trace";
 
-type Experimental = {
-  completions?: {
-    enable?: boolean;
-  };
-};
-
 type PythonSettings = {
   ty?: {
     disableLanguageServices?: boolean;
@@ -32,7 +26,6 @@ export interface ISettings {
   importStrategy: ImportStrategy;
   logLevel?: LogLevel;
   logFile?: string;
-  experimental?: Experimental;
   python?: PythonSettings;
 }
 
@@ -126,7 +119,6 @@ export async function getWorkspaceSettings(
     importStrategy: config.get<ImportStrategy>("importStrategy") ?? "fromEnvironment",
     logLevel: config.get<LogLevel>("logLevel"),
     logFile: config.get<string>("logFile"),
-    experimental: config.get<Experimental>("experimental"),
     python: getPythonSettings(workspace),
   };
 }
@@ -151,7 +143,6 @@ export async function getGlobalSettings(namespace: string): Promise<ISettings> {
     importStrategy: getGlobalValue<ImportStrategy>(config, "importStrategy", "fromEnvironment"),
     logLevel: getOptionalGlobalValue<LogLevel>(config, "logLevel"),
     logFile: getOptionalGlobalValue<string>(config, "logFile"),
-    experimental: getOptionalGlobalValue<Experimental>(config, "experimental"),
     python: getPythonSettings(),
   };
 }

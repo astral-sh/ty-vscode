@@ -28,17 +28,6 @@ Currently, the extension supports the following features:
 
 > **Note:**
 >
-> Completions is an experimental feature and requires explicit opt-in to be enabled via the
-> following setting in your `settings.json`:
->
-> ```json
-> {
->   "ty.experimental.completions.enable": true
-> }
-> ```
-
-> **Note:**
->
 > If you want to test the language server features like completions, go to type definition, etc., it's
 > recommended to disable the language server from the [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) (if installed) by adding the
 > following [setting](https://code.visualstudio.com/docs/python/settings-reference#_intellisense-engine-settings) to your `settings.json`:
