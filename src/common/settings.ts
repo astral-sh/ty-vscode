@@ -18,12 +18,15 @@ type PythonSettings = {
   };
 };
 
+type DiagnosticMode = "openFilesOnly" | "workspace";
+
 export interface ISettings {
   cwd: string;
   workspace: string;
   path: string[];
   interpreter: string[];
   importStrategy: ImportStrategy;
+  diagnosticMode: DiagnosticMode;
   logLevel?: LogLevel;
   logFile?: string;
   python?: PythonSettings;
@@ -117,6 +120,7 @@ export async function getWorkspaceSettings(
     path: resolveVariables(config.get<string[]>("path") ?? [], workspace),
     interpreter,
     importStrategy: config.get<ImportStrategy>("importStrategy") ?? "fromEnvironment",
+    diagnosticMode: config.get<DiagnosticMode>("diagnosticMode") ?? "openFilesOnly",
     logLevel: config.get<LogLevel>("logLevel"),
     logFile: config.get<string>("logFile"),
     python: getPythonSettings(workspace),
@@ -141,6 +145,7 @@ export async function getGlobalSettings(namespace: string): Promise<ISettings> {
     path: getGlobalValue<string[]>(config, "path", []),
     interpreter: [],
     importStrategy: getGlobalValue<ImportStrategy>(config, "importStrategy", "fromEnvironment"),
+    diagnosticMode: getGlobalValue<DiagnosticMode>(config, "diagnosticMode", "openFilesOnly"),
     logLevel: getOptionalGlobalValue<LogLevel>(config, "logLevel"),
     logFile: getOptionalGlobalValue<string>(config, "logFile"),
     python: getPythonSettings(),
@@ -157,7 +162,7 @@ export function checkIfConfigurationChanged(
     `${namespace}.path`,
     `${namespace}.logLevel`,
     `${namespace}.logFile`,
-    `${namespace}.experimental.completions.enable`,
+    `${namespace}.diagnosticMode`,
     "python.ty.disableLanguageServices",
   ];
   return settings.some((s) => e.affectsConfiguration(s));

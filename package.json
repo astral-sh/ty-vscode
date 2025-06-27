@@ -79,6 +79,20 @@
           "scope": "window",
           "type": "boolean"
         },
+        "ty.diagnosticMode": {
+          "default": "openFilesOnly",
+          "markdownDescription": "Analysis scope for showing diagnostics.",
+          "enum": [
+            "openFilesOnly",
+            "workspace"
+          ],
+          "enumDescriptions": [
+            "Analyzes and reports errors on only open files.",
+            "Analyzes and reports errors on all files in the workspace."
+          ],
+          "scope": "resource",
+          "type": "string"
+        },
         "ty.importStrategy": {
           "default": "fromEnvironment",
           "markdownDescription": "Strategy for loading the `ty` executable. `fromEnvironment` picks up ty from the environment, falling back to the bundled version if needed. `useBundled` uses the version bundled with the extension.",
