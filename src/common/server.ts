@@ -1,9 +1,16 @@
 import * as fsapi from "fs-extra";
 import { execFile } from "node:child_process";
-import { platform } from "os";
+import { platform } from "node:os";
 import * as vscode from "vscode";
-import { Disposable, l10n, LanguageStatusSeverity, OutputChannel } from "vscode";
-import { MessageType, ShowMessageNotification, State } from "vscode-languageclient";
+import { type Disposable, l10n, LanguageStatusSeverity, type OutputChannel } from "vscode";
+import {
+  DidChangeConfigurationNotification,
+  type LanguageClientOptions,
+  MessageType,
+  type Middleware,
+  ShowMessageNotification,
+  State,
+} from "vscode-languageclient";
 import { LanguageClient, RevealOutputChannelOn } from "vscode-languageclient/node";
 import {
   BINARY_NAME,
@@ -12,12 +19,14 @@ import {
   SERVER_SUBCOMMAND,
 } from "./constants";
 import { logger } from "./logger";
-import { getExtensionSettings, getGlobalSettings, ISettings } from "./settings";
+import { getExtensionSettings, getGlobalSettings, type ISettings } from "./settings";
 import { updateStatus } from "./status";
 import { getDocumentSelector } from "./utilities";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 import which = require("which");
+import { createTyMiddleware } from "../client";
+import { getPythonExtensionAPI } from "./python";
 
 export type IInitializationOptions = {
   settings: ISettings[];
@@ -133,6 +142,7 @@ async function createServer(
   outputChannel: OutputChannel,
   traceOutputChannel: OutputChannel,
   initializationOptions: IInitializationOptions,
+  middleware?: Middleware,
 ): Promise<LanguageClient> {
   const binaryPath = await findBinaryPath(settings);
   logger.info(`Found executable at ${binaryPath}`);
@@ -146,13 +156,14 @@ async function createServer(
     options: { cwd: settings.cwd, env: process.env },
   };
 
-  const clientOptions = {
+  const clientOptions: LanguageClientOptions = {
     // Register the server for python documents
     documentSelector: getDocumentSelector(),
     outputChannel,
     traceOutputChannel,
     revealOutputChannelOn: RevealOutputChannelOn.Never,
     initializationOptions,
+    middleware,
   };
 
   return new LanguageClient(serverId, serverName, serverOptions, clientOptions);
@@ -175,6 +186,9 @@ export async function startServer(
   }
   const globalSettings = await getGlobalSettings(serverId);
   logger.info(`Global settings: ${JSON.stringify(globalSettings, null, 4)}`);
+  const pythonExtension = await getPythonExtensionAPI();
+
+  const middleware = createTyMiddleware(pythonExtension);
 
   const newLSClient = await createServer(
     workspaceSettings,
@@ -186,20 +200,21 @@ export async function startServer(
       settings: extensionSettings,
       globalSettings: globalSettings,
     },
+    middleware,
   );
-  logger.info(`Server: Start requested.`);
+  logger.info("Server: Start requested.");
 
   _disposables.push(
     newLSClient.onDidChangeState((e) => {
       switch (e.newState) {
         case State.Stopped:
-          logger.debug(`Server State: Stopped`);
+          logger.debug("Server State: Stopped");
           break;
         case State.Starting:
-          logger.debug(`Server State: Starting`);
+          logger.debug("Server State: Starting");
           break;
         case State.Running:
-          logger.debug(`Server State: Running`);
+          logger.debug("Server State: Running");
           updateStatus(undefined, LanguageStatusSeverity.Information, false);
           break;
       }
@@ -217,6 +232,15 @@ export async function startServer(
         }
       });
     }),
+
+    pythonExtension.environments.onDidChangeActiveEnvironmentPath(() => {
+      if (middleware.isDidChangeConfigurationRegistered()) {
+        logger.debug("Python interpreter changed, sending DidChangeConfigurationNotification");
+
+        // If the Python interpreter changes,
+        newLSClient.sendNotification(DidChangeConfigurationNotification.type, undefined);
+      }
+    }),
   );
 
   try {
@@ -232,12 +256,14 @@ export async function startServer(
 }
 
 export async function stopServer(lsClient: LanguageClient): Promise<void> {
-  logger.info(`Server: Stop requested`);
+  logger.info("Server: Stop requested");
   await lsClient.stop();
   dispose();
 }
 
 function dispose(): void {
-  _disposables.forEach((d) => d.dispose());
+  for (const disposable of _disposables) {
+    disposable.dispose();
+  }
   _disposables = [];
 }

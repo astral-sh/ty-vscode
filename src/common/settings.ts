@@ -1,4 +1,4 @@
-import {
+import type {
   ConfigurationChangeEvent,
   ConfigurationScope,
   WorkspaceConfiguration,
@@ -91,9 +91,9 @@ function getPythonSettings(workspace?: WorkspaceFolder): PythonSettings | undefi
         disableLanguageServices,
       },
     };
-  } else {
-    return undefined;
   }
+
+  return undefined;
 }
 
 export async function getWorkspaceSettings(
