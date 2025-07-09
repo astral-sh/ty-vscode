@@ -64,24 +64,54 @@ export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddlewa
           return response;
         }
 
-        return params.items.map((param, index) => {
-          const result = response[index];
+        return Promise.all(
+          params.items.map(async (param, index) => {
+            const result = response[index];
 
-          if (param.section === "ty") {
-            const scopeUri = param.scopeUri ? Uri.parse(param.scopeUri) : undefined;
-            const activeEnvironment =
-              pythonExtension.environments.getActiveEnvironmentPath(scopeUri);
+            if (param.section === "ty") {
+              const scopeUri = param.scopeUri ? Uri.parse(param.scopeUri) : undefined;
+              const path = pythonExtension.environments.getActiveEnvironmentPath(scopeUri);
 
-            return {
-              ...result,
+              const resolved = await pythonExtension.environments.resolveEnvironment(path);
 
-              pythonExtension: {
-                ...result?.pythonExtension,
-                activeEnvironment,
-              },
-            };
-          }
-        });
+              const activeEnvironment =
+                resolved == null
+                  ? null
+                  : {
+                      version:
+                        resolved.version == null
+                          ? null
+                          : {
+                              major: resolved.version.major as number,
+                              minor: resolved.version.minor as number,
+                              patch: resolved.version.micro as number,
+                              sysVersion: resolved.version.sysVersion as string,
+                            },
+                      environment:
+                        resolved.environment == null
+                          ? null
+                          : {
+                              folderUri: resolved.environment.folderUri.toString(),
+                              uri: resolved.environment.name as string,
+                              type: resolved.environment.type as string,
+                            },
+                      executable: {
+                        uri: resolved.executable.uri?.toString(),
+                        sysPrefix: resolved.executable.sysPrefix as string,
+                      },
+                    };
+
+              return {
+                ...result,
+
+                pythonExtension: {
+                  ...result?.pythonExtension,
+                  activeEnvironment,
+                },
+              };
+            }
+          }),
+        );
       },
     },
   };
