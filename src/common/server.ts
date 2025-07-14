@@ -234,10 +234,12 @@ export async function startServer(
     }),
 
     pythonExtension.environments.onDidChangeActiveEnvironmentPath(() => {
+      // If the Python interpreter changed and the server registered for `didChangeConfiguration`,
+      // notifications, send the notification to the server so that it can request the updated
+      // interpreter settings.
       if (middleware.isDidChangeConfigurationRegistered()) {
         logger.debug("Python interpreter changed, sending DidChangeConfigurationNotification");
 
-        // If the Python interpreter changes,
         newLSClient.sendNotification(DidChangeConfigurationNotification.type, undefined);
       }
     }),
