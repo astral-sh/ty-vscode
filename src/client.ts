@@ -3,7 +3,6 @@ import {
   ResponseError,
   CancellationToken,
   DidChangeConfigurationNotification,
-  type DidChangeConfigurationRegistrationOptions,
 } from "vscode-languageclient";
 import { Uri } from "vscode";
 import type { PythonExtension } from "@vscode/python-extension";
@@ -25,17 +24,7 @@ export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddlewa
 
       for (const registration of params.registrations) {
         if (registration.method === DidChangeConfigurationNotification.method) {
-          const registrationOptions =
-            (registration.registerOptions as DidChangeConfigurationRegistrationOptions) ?? null;
-          const section = registrationOptions?.section;
-
-          if (Array.isArray(section) && section.includes("ty")) {
-            didChangeRegistrations.add(registration.id);
-          } else if (section === "ty") {
-            didChangeRegistrations.add(registration.id);
-          } else if (section == null) {
-            didChangeRegistrations.add(registration.id);
-          }
+          didChangeRegistrations.add(registration.id);
         }
       }
     },
