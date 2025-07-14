@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { LanguageClient } from "vscode-languageclient/node";
+import type { LanguageClient } from "vscode-languageclient/node";
 import { LazyOutputChannel, logger } from "./common/logger";
 import {
   checkVersion,
@@ -107,7 +107,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             workspaceSettings.interpreter.join(" "),
           );
           return;
-        } else if (!checkVersion(resolvedEnvironment)) {
+        }
+
+        if (!checkVersion(resolvedEnvironment)) {
           return;
         }
       }
@@ -159,9 +161,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (vscode.workspace.isTrusted) {
       const interpreter = getInterpreterFromSetting(serverId);
       if (interpreter === undefined || interpreter.length === 0) {
-        logger.info(`Python extension loading`);
+        logger.info("Python extension loading");
         await initializePython(context.subscriptions);
-        logger.info(`Python extension loaded`);
+        logger.info("Python extension loaded");
         return; // The `onDidChangePythonInterpreter` event will trigger the server start.
       }
     }
