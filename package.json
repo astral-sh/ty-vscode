@@ -90,7 +90,7 @@
             "Analyzes and reports errors on only open files.",
             "Analyzes and reports errors on all files in the workspace."
           ],
-          "scope": "resource",
+          "scope": "window",
           "type": "string"
         },
         "ty.importStrategy": {
@@ -110,7 +110,7 @@
         "ty.interpreter": {
           "default": [],
           "markdownDescription": "Path to a Python interpreter to use to find the `ty` executable.",
-          "scope": "resource",
+          "scope": "window",
           "items": {
             "type": "string"
           },
@@ -138,7 +138,7 @@
         "ty.path": {
           "default": [],
           "markdownDescription": "Path to a custom `ty` executable, e.g., `[\"/path/to/ty\"]`.",
-          "scope": "resource",
+          "scope": "window",
           "items": {
             "type": "string"
           },
