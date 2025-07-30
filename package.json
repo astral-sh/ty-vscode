@@ -73,7 +73,7 @@
   "contributes": {
     "configuration": {
       "properties": {
-        "python.ty.disableLanguageServices": {
+        "ty.disableLanguageServices": {
           "default": false,
           "markdownDescription": "Whether to disable all language services for ty like completions, hover, goto definition, etc.",
           "scope": "window",

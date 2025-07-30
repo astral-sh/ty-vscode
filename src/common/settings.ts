@@ -12,32 +12,16 @@ type ImportStrategy = "fromEnvironment" | "useBundled";
 
 type LogLevel = "error" | "warn" | "info" | "debug" | "trace";
 
-type PythonSettings = {
-  ty?: {
-    disableLanguageServices?: boolean;
-  };
-};
+export interface InitializationOptions {
+  logLevel?: LogLevel;
+  logFile?: string;
+}
 
-type DiagnosticMode = "openFilesOnly" | "workspace";
-
-export interface ISettings {
+export interface ExtensionSettings {
   cwd: string;
-  workspace: string;
   path: string[];
   interpreter: string[];
   importStrategy: ImportStrategy;
-  diagnosticMode: DiagnosticMode;
-  logLevel?: LogLevel;
-  logFile?: string;
-  python?: PythonSettings;
-}
-
-export function getExtensionSettings(namespace: string): Promise<ISettings[]> {
-  return Promise.all(
-    getWorkspaceFolders().map((workspaceFolder) =>
-      getWorkspaceSettings(namespace, workspaceFolder),
-    ),
-  );
 }
 
 function resolveVariables(value: string[], workspace?: WorkspaceFolder): string[];
@@ -80,29 +64,23 @@ function resolveVariables(
   }
 }
 
+export function getInitializationOptions(namespace: string): InitializationOptions {
+  const config = getConfiguration(namespace);
+  return {
+    logLevel: getOptionalGlobalValue<LogLevel>(config, "logLevel"),
+    logFile: getOptionalGlobalValue<string>(config, "logFile"),
+  };
+}
+
 export function getInterpreterFromSetting(namespace: string, scope?: ConfigurationScope) {
   const config = getConfiguration(namespace, scope);
   return config.get<string[]>("interpreter");
 }
 
-function getPythonSettings(workspace?: WorkspaceFolder): PythonSettings | undefined {
-  const config = getConfiguration("python", workspace?.uri);
-  const disableLanguageServices = config.get<boolean>("ty.disableLanguageServices");
-  if (disableLanguageServices !== undefined) {
-    return {
-      ty: {
-        disableLanguageServices,
-      },
-    };
-  }
-
-  return undefined;
-}
-
-export async function getWorkspaceSettings(
+export async function getExtensionSettings(
   namespace: string,
   workspace: WorkspaceFolder,
-): Promise<ISettings> {
+): Promise<ExtensionSettings> {
   const config = getConfiguration(namespace, workspace.uri);
 
   let interpreter: string[] = getInterpreterFromSetting(namespace, workspace) ?? [];
@@ -116,40 +94,15 @@ export async function getWorkspaceSettings(
 
   return {
     cwd: workspace.uri.fsPath,
-    workspace: workspace.uri.toString(),
     path: resolveVariables(config.get<string[]>("path") ?? [], workspace),
     interpreter,
     importStrategy: config.get<ImportStrategy>("importStrategy") ?? "fromEnvironment",
-    diagnosticMode: config.get<DiagnosticMode>("diagnosticMode") ?? "openFilesOnly",
-    logLevel: config.get<LogLevel>("logLevel"),
-    logFile: config.get<string>("logFile"),
-    python: getPythonSettings(workspace),
   };
-}
-
-function getGlobalValue<T>(config: WorkspaceConfiguration, key: string, defaultValue: T): T {
-  const inspect = config.inspect<T>(key);
-  return inspect?.globalValue ?? inspect?.defaultValue ?? defaultValue;
 }
 
 function getOptionalGlobalValue<T>(config: WorkspaceConfiguration, key: string): T | undefined {
   const inspect = config.inspect<T>(key);
   return inspect?.globalValue;
-}
-
-export async function getGlobalSettings(namespace: string): Promise<ISettings> {
-  const config = getConfiguration(namespace);
-  return {
-    cwd: process.cwd(),
-    workspace: process.cwd(),
-    path: getGlobalValue<string[]>(config, "path", []),
-    interpreter: [],
-    importStrategy: getGlobalValue<ImportStrategy>(config, "importStrategy", "fromEnvironment"),
-    diagnosticMode: getGlobalValue<DiagnosticMode>(config, "diagnosticMode", "openFilesOnly"),
-    logLevel: getOptionalGlobalValue<LogLevel>(config, "logLevel"),
-    logFile: getOptionalGlobalValue<string>(config, "logFile"),
-    python: getPythonSettings(),
-  };
 }
 
 export function checkIfConfigurationChanged(
@@ -162,8 +115,9 @@ export function checkIfConfigurationChanged(
     `${namespace}.path`,
     `${namespace}.logLevel`,
     `${namespace}.logFile`,
+    // TODO: Remove these once `workspace/didChangeConfiguration` is supported in the server
     `${namespace}.diagnosticMode`,
-    "python.ty.disableLanguageServices",
+    `${namespace}.disableLanguageServices`,
   ];
   return settings.some((s) => e.affectsConfiguration(s));
 }

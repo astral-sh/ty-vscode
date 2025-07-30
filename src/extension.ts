@@ -11,7 +11,7 @@ import { startServer, stopServer } from "./common/server";
 import {
   checkIfConfigurationChanged,
   getInterpreterFromSetting,
-  getWorkspaceSettings,
+  getExtensionSettings,
 } from "./common/settings";
 import { loadServerDefaults } from "./common/setup";
 import { registerLanguageStatusItem, updateStatus } from "./common/status";
@@ -78,10 +78,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
 
       const projectRoot = await getProjectRoot();
-      const workspaceSettings = await getWorkspaceSettings(serverId, projectRoot);
+      const settings = await getExtensionSettings(serverId, projectRoot);
 
       if (vscode.workspace.isTrusted) {
-        if (workspaceSettings.interpreter.length === 0) {
+        if (settings.interpreter.length === 0) {
           updateStatus(
             vscode.l10n.t("Please select a Python interpreter."),
             vscode.LanguageStatusSeverity.Error,
@@ -95,8 +95,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           return;
         }
 
-        logger.info(`Using interpreter: ${workspaceSettings.interpreter.join(" ")}`);
-        const resolvedEnvironment = await resolveInterpreter(workspaceSettings.interpreter);
+        logger.info(`Using interpreter: ${settings.interpreter.join(" ")}`);
+        const resolvedEnvironment = await resolveInterpreter(settings.interpreter);
         if (resolvedEnvironment === undefined) {
           updateStatus(
             vscode.l10n.t("Python interpreter not found."),
@@ -104,7 +104,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           );
           logger.error(
             "Unable to find any Python environment for the interpreter path:",
-            workspaceSettings.interpreter.join(" "),
+            settings.interpreter.join(" "),
           );
           return;
         }
@@ -115,7 +115,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
 
       lsClient = await startServer(
-        workspaceSettings,
+        settings,
         serverId,
         serverName,
         outputChannel,

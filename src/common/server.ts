@@ -19,7 +19,11 @@ import {
   SERVER_SUBCOMMAND,
 } from "./constants";
 import { logger } from "./logger";
-import { getExtensionSettings, getGlobalSettings, type ISettings } from "./settings";
+import {
+  getInitializationOptions,
+  InitializationOptions,
+  type ExtensionSettings,
+} from "./settings";
 import { updateStatus } from "./status";
 import { getDocumentSelector } from "./utilities";
 
@@ -27,11 +31,6 @@ import { getDocumentSelector } from "./utilities";
 import which = require("which");
 import { createTyMiddleware } from "../client";
 import { getPythonExtensionAPI } from "./python";
-
-export type IInitializationOptions = {
-  settings: ISettings[];
-  globalSettings: ISettings;
-};
 
 /**
  * Check if shell mode is required for `execFile`.
@@ -76,7 +75,7 @@ function executeFile(file: string, args: string[] = []): Promise<string> {
  *    which checks the PATH environment variable.
  * 5. If all else fails, return the bundled executable path.
  */
-async function findBinaryPath(settings: ISettings): Promise<string> {
+async function findBinaryPath(settings: ExtensionSettings): Promise<string> {
   if (!vscode.workspace.isTrusted) {
     logger.info(`Workspace is not trusted, using bundled executable: ${BUNDLED_EXECUTABLE}`);
     return BUNDLED_EXECUTABLE;
@@ -136,12 +135,12 @@ async function findBinaryPath(settings: ISettings): Promise<string> {
 }
 
 async function createServer(
-  settings: ISettings,
+  settings: ExtensionSettings,
   serverId: string,
   serverName: string,
   outputChannel: OutputChannel,
   traceOutputChannel: OutputChannel,
-  initializationOptions: IInitializationOptions,
+  initializationOptions: InitializationOptions,
   middleware?: Middleware,
 ): Promise<LanguageClient> {
   const binaryPath = await findBinaryPath(settings);
@@ -172,7 +171,7 @@ async function createServer(
 let _disposables: Disposable[] = [];
 
 export async function startServer(
-  workspaceSettings: ISettings,
+  settings: ExtensionSettings,
   serverId: string,
   serverName: string,
   outputChannel: OutputChannel,
@@ -180,26 +179,19 @@ export async function startServer(
 ): Promise<LanguageClient | undefined> {
   updateStatus(undefined, LanguageStatusSeverity.Information, true);
 
-  const extensionSettings = await getExtensionSettings(serverId);
-  for (const settings of extensionSettings) {
-    logger.info(`Workspace settings for ${settings.cwd}: ${JSON.stringify(settings, null, 4)}`);
-  }
-  const globalSettings = await getGlobalSettings(serverId);
-  logger.info(`Global settings: ${JSON.stringify(globalSettings, null, 4)}`);
-  const pythonExtension = await getPythonExtensionAPI();
+  const initializationOptions = getInitializationOptions(serverId);
+  logger.info(`Initialization options: ${JSON.stringify(initializationOptions, null, 4)}`);
 
+  const pythonExtension = await getPythonExtensionAPI();
   const middleware = createTyMiddleware(pythonExtension);
 
   const newLSClient = await createServer(
-    workspaceSettings,
+    settings,
     serverId,
     serverName,
     outputChannel,
     traceOutputChannel,
-    {
-      settings: extensionSettings,
-      globalSettings: globalSettings,
-    },
+    initializationOptions,
     middleware,
   );
   logger.info("Server: Start requested.");
