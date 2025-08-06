@@ -76,6 +76,14 @@
         "python.ty.disableLanguageServices": {
           "default": false,
           "markdownDescription": "Whether to disable all language services for ty like completions, hover, goto definition, etc.",
+          "markdownDeprecationMessage": "**Deprecated**: Please use `ty.disableLanguageServices` instead.",
+          "deprecationMessage": "Deprecated: Please use ty.disableLanguageServices instead.",
+          "scope": "window",
+          "type": "boolean"
+        },
+        "ty.disableLanguageServices": {
+          "default": false,
+          "markdownDescription": "Whether to disable all language services for ty like completions, hover, goto definition, etc.",
           "scope": "window",
           "type": "boolean"
         },
