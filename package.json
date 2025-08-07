@@ -122,7 +122,7 @@
           "type": "string"
         },
         "ty.inlayHints.variableTypes": {
-          "default": false,
+          "default": true,
           "markdownDescription": "Whether to enable inlay hints for variable types.",
           "scope": "window",
           "type": "boolean"
