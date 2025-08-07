@@ -119,6 +119,7 @@ export function checkIfConfigurationChanged(
     `${namespace}.diagnosticMode`,
     `${namespace}.disableLanguageServices`,
     `${namespace}.experimental.rename`,
+    `${namespace}.inlayHints.variableTypes`,
   ];
   return settings.some((s) => e.affectsConfiguration(s));
 }

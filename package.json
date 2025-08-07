@@ -121,6 +121,12 @@
           "scope": "window",
           "type": "string"
         },
+        "ty.inlayHints.variableTypes": {
+          "default": false,
+          "markdownDescription": "Whether to enable inlay hints for variable types.",
+          "scope": "window",
+          "type": "boolean"
+        },
         "ty.interpreter": {
           "default": [],
           "markdownDescription": "Path to a Python interpreter to use to find the `ty` executable.",
