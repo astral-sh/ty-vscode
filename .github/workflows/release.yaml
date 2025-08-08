@@ -15,8 +15,7 @@ jobs:
     name: "Build ID"
     runs-on: ubuntu-latest
     outputs:
-      RELEASE_BUILD_ID: ${{ steps.release-build-id-generator.outputs.BUILD_ID }}
-      NIGHTLY_BUILD_ID: ${{ steps.nightly-build-id-generator.outputs.BUILD_ID }}
+      build-id: ${{ steps.build-id-generator.outputs.build-id }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -25,20 +24,16 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.x"
-      - name: Generate Build ID (release)
-        if: "startsWith(github.ref, 'refs/tags/')"
-        id: release-build-id-generator
+      - name: Generate Build ID
+        id: build-id-generator
         run: |
-          export BUILD_ID=$(python -m build.generate_build_id)
-          echo "BUILD_ID: ${BUILD_ID}"
-          echo "BUILD_ID=${BUILD_ID}" >> $GITHUB_OUTPUT
-      - name: Generate Build ID (nightly)
-        if: "!startsWith(github.ref, 'refs/tags/')"
-        id: nightly-build-id-generator
-        run: |
-          export BUILD_ID=$(python -m build.generate_build_id --pre-release)
-          echo "BUILD_ID: ${BUILD_ID}"
-          echo "BUILD_ID=${BUILD_ID}" >> $GITHUB_OUTPUT
+          if [[ "${{ github.event.release.prerelease }}" = "true" ]]; then
+            build_id="$(python -m build.generate_build_id --pre-release)"
+          else
+            build_id="$(python -m build.generate_build_id)"
+          fi
+          echo "build-id: ${build_id}"
+          echo "build-id=${build_id}" >> "$GITHUB_OUTPUT"
 
   # Phase 2: Build the extension on all platforms.
   build:
@@ -141,22 +136,22 @@ jobs:
       - run: npm ci
 
       # Set the Build ID.
-      - name: Set Build ID (release)
-        if: "startsWith(github.ref, 'refs/tags/')"
+      - name: Set Build ID
         run: |
-          python -m build.update_ext_version --build-id ${{ needs.build-id.outputs.RELEASE_BUILD_ID }} --for-publishing
-      - name: Set Build ID (nightly)
-        if: "!startsWith(github.ref, 'refs/tags/')"
-        run: |
-          python -m build.update_ext_version --build-id ${{ needs.build-id.outputs.NIGHTLY_BUILD_ID }} --for-publishing --pre-release
+          if [[ "${{ github.event.release.prerelease }}" = "true" ]]; then
+            python -m build.update_ext_version --build-id ${{ needs.build-id.outputs.build-id }} --for-publishing --pre-release
+          else
+            python -m build.update_ext_version --build-id ${{ needs.build-id.outputs.build-id }} --for-publishing
+          fi
 
       # Build the extension.
-      - name: Package Extension (release)
-        if: "startsWith(github.ref, 'refs/tags/')"
-        run: npx vsce package -o "./dist/ty-${{ matrix.code-target }}.vsix" --target ${{ matrix.code-target }}
-      - name: Package Extension (nightly)
-        if: "!startsWith(github.ref, 'refs/tags/')"
-        run: npx vsce package -o "./dist/ty-${{ matrix.code-target }}.vsix" --target ${{ matrix.code-target }} --pre-release
+      - name: Package Extension
+        run: |
+          if [ "${{ github.event.release.prerelease }}" = "true" ]; then
+            npx vsce package -o "./dist/ty-${{ matrix.code-target }}.vsix" --target ${{ matrix.code-target }} --pre-release
+          else
+            npx vsce package -o "./dist/ty-${{ matrix.code-target }}.vsix" --target ${{ matrix.code-target }}
+          fi
 
       # Upload the extension.
       - name: Upload artifacts
@@ -224,12 +219,13 @@ jobs:
       - run: npm ci
 
       # Publish to the Code Marketplace.
-      - name: Publish Extension (Code Marketplace, release)
-        if: "startsWith(github.ref, 'refs/tags/')"
-        run: npx vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ty-*.vsix
-      - name: Publish Extension (Code Marketplace, nightly)
-        if: "!startsWith(github.ref, 'refs/tags/')"
-        run: npx vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ty-*.vsix --pre-release
+      - name: Publish Extension (Code Marketplace)
+        run: |
+          if [[ "${{ github.event.release.prerelease }}" = "true" ]]; then
+            npx vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ty-*.vsix --pre-release
+          else
+            npx vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ty-*.vsix
+          fi
 
   publish-openvsx:
     name: "Publish (OpenVSX)"
@@ -289,11 +285,11 @@ jobs:
       - run: npm ci
 
       # Publish to OpenVSX.
-      - name: Publish Extension (OpenVSX, release)
-        if: "startsWith(github.ref, 'refs/tags/')"
-        run: npx ovsx publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ty-*.vsix
-        timeout-minutes: 2
-      - name: Publish Extension (OpenVSX, nightly)
-        if: "!startsWith(github.ref, 'refs/tags/')"
-        run: npx ovsx publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ty-*.vsix --pre-release
+      - name: Publish Extension (OpenVSX)
+        run: |
+          if [[ "${{ github.event.release.prerelease }}" = "true" ]]; then
+            npx ovsx publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ty-*.vsix --pre-release
+          else
+            npx ovsx publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ty-*.vsix
+          fi
         timeout-minutes: 2
