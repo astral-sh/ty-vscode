@@ -22,9 +22,21 @@ Currently, the extension supports the following features:
 
 - Showing diagnostics in the editor
 - Hover type information for symbols
+- Go to definition
+- Go to declaration
 - Go to type definition
-- Inlay hints for assignment targets
+- Find references
+- Inlay hints
 - Completions
+- Signature help
+- Highlight references of symbols
+- Document symbols
+- Workspace symbols
+- Semantic tokens
+
+And, the following experimental features:
+
+- Symbol renaming (`ty.experimental.rename`)
 
 > **Note:**
 >
