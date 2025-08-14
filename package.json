@@ -127,6 +127,12 @@
           "scope": "window",
           "type": "boolean"
         },
+        "ty.inlayHints.callArgumentNames": {
+          "default": true,
+          "markdownDescription": "Whether to enable inlay hints for call argument names.",
+          "scope": "window",
+          "type": "boolean"
+        },
         "ty.interpreter": {
           "default": [],
           "markdownDescription": "Path to a Python interpreter to use to find the `ty` executable.",
