@@ -31,14 +31,14 @@ jobs:
         with:
           python-version: "3.x"
       - name: Generate Build ID (release)
-        if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || !github.event.release.prerelease }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || (github.event_name == 'release' && !github.event.release.prerelease) }}
         id: release-build-id-generator
         run: |
           release_build_id="$(python -m build.generate_build_id)"
           echo "release-build-id: ${release_build_id}"
           echo "release-build-id=${release_build_id}" >> "$GITHUB_OUTPUT"
       - name: Generate Build ID (nightly)
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || github.event.release.prerelease }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || (github.event_name == 'release' && github.event.release.prerelease) }}
         id: nightly-build-id-generator
         run: |
           nightly_build_id="$(python -m build.generate_build_id --pre-release)"
@@ -147,20 +147,20 @@ jobs:
 
       # Set the Build ID.
       - name: Set Build ID (release)
-        if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || !github.event.release.prerelease }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || (github.event_name == 'release' && !github.event.release.prerelease) }}
         run: |
           python -m build.update_ext_version --build-id ${{ needs.build-id.outputs.release-build-id }} --for-publishing
       - name: Set Build ID (nightly)
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || github.event.release.prerelease }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || (github.event_name == 'release' && github.event.release.prerelease) }}
         run: |
           python -m build.update_ext_version --build-id ${{ needs.build-id.outputs.nightly-build-id }} --for-publishing --pre-release
 
       # Build the extension.
       - name: Package Extension (release)
-        if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || !github.event.release.prerelease }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || (github.event_name == 'release' && !github.event.release.prerelease) }}
         run: npx vsce package -o "./dist/ty-${{ matrix.code-target }}.vsix" --target ${{ matrix.code-target }}
       - name: Package Extension (nightly)
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || github.event.release.prerelease }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || (github.event_name == 'release' && github.event.release.prerelease) }}
         run: npx vsce package -o "./dist/ty-${{ matrix.code-target }}.vsix" --target ${{ matrix.code-target }} --pre-release
 
       # Upload the extension.
@@ -230,10 +230,10 @@ jobs:
 
       # Publish to the Code Marketplace.
       - name: Publish Extension (Code Marketplace, release)
-        if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || !github.event.release.prerelease }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || (github.event_name == 'release' && !github.event.release.prerelease) }}
         run: npx vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ty-*.vsix
       - name: Publish Extension (Code Marketplace, nightly)
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || github.event.release.prerelease }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || (github.event_name == 'release' && github.event.release.prerelease) }}
         run: npx vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ty-*.vsix --pre-release
 
   publish-openvsx:
@@ -295,10 +295,10 @@ jobs:
 
       # Publish to OpenVSX.
       - name: Publish Extension (OpenVSX, release)
-        if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || !github.event.release.prerelease }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || (github.event_name == 'release' && !github.event.release.prerelease) }}
         run: npx ovsx publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ty-*.vsix
         timeout-minutes: 2
       - name: Publish Extension (OpenVSX, nightly)
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || github.event.release.prerelease }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || (github.event_name == 'release' && github.event.release.prerelease) }}
         run: npx ovsx publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ty-*.vsix --pre-release
         timeout-minutes: 2
