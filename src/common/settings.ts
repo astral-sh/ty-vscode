@@ -86,7 +86,7 @@ export async function getExtensionSettings(
   let interpreter: string[] = getInterpreterFromSetting(namespace, workspace) ?? [];
   if (interpreter.length === 0) {
     if (vscode.workspace.isTrusted) {
-      interpreter = (await getInterpreterDetails(workspace.uri)).path ?? [];
+      interpreter = (await getInterpreterDetails(workspace)).path ?? [];
     }
   } else {
     interpreter = resolveVariables(interpreter, workspace);
