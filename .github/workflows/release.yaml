@@ -12,6 +12,8 @@ on:
 env:
   FETCH_DEPTH: 0
 
+permissions: {}
+
 jobs:
   # Phase 1: Generate the Build ID.
   # We have to do this ahead-of-time, and store it as a job output,
@@ -27,6 +29,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: ${{ env.FETCH_DEPTH }}
+          persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.x"
@@ -92,6 +95,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: ${{ env.FETCH_DEPTH }}
+          persist-credentials: false
 
       # Install Python dependencies (including ty's native binary).
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -149,11 +153,15 @@ jobs:
       - name: Set Build ID (release)
         if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || (github.event_name == 'release' && !github.event.release.prerelease) }}
         run: |
-          python -m build.update_ext_version --build-id ${{ needs.build-id.outputs.release-build-id }} --for-publishing
+          python -m build.update_ext_version --build-id "${BUILD_ID}" --for-publishing
+        env:
+          BUILD_ID: ${{ needs.build-id.outputs.release-build-id }}
       - name: Set Build ID (nightly)
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || (github.event_name == 'release' && github.event.release.prerelease) }}
         run: |
-          python -m build.update_ext_version --build-id ${{ needs.build-id.outputs.nightly-build-id }} --for-publishing --pre-release
+          python -m build.update_ext_version --build-id "${BUILD_ID}" --for-publishing --pre-release
+        env:
+          BUILD_ID: ${{ needs.build-id.outputs.nightly-build-id }}
 
       # Build the extension.
       - name: Package Extension (release)
@@ -185,6 +193,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: ${{ env.FETCH_DEPTH }}
+          persist-credentials: false
 
       # Download all built artifacts.
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
@@ -250,6 +259,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: ${{ env.FETCH_DEPTH }}
+          persist-credentials: false
 
       # Download all built artifacts.
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
