@@ -118,7 +118,7 @@ export function checkIfConfigurationChanged(
     // TODO: Remove these once `workspace/didChangeConfiguration` is supported in the server
     `${namespace}.diagnosticMode`,
     `${namespace}.disableLanguageServices`,
-    `${namespace}.experimental.rename`,
+    `${namespace}.experimental`,
     `${namespace}.inlayHints`,
   ];
   return settings.some((s) => e.affectsConfiguration(s));

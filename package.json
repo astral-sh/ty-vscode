@@ -107,6 +107,12 @@
           "scope": "window",
           "type": "boolean"
         },
+        "ty.experimental.autoImport": {
+          "default": false,
+          "markdownDescription": "Enable experimental support for auto-import code completions in ty.",
+          "scope": "window",
+          "type": "boolean"
+        },
         "ty.importStrategy": {
           "default": "fromEnvironment",
           "markdownDescription": "Strategy for loading the `ty` executable. `fromEnvironment` picks up ty from the environment, falling back to the bundled version if needed. `useBundled` uses the version bundled with the extension.",
