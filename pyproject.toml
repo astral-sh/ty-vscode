@@ -1,6 +1,6 @@
 [project]
 name = "ty-vscode"
-version = "2025.39.0"
+version = "2025.41.0"
 requires-python = ">=3.8"
 dependencies = ["ty==0.0.1a20"]
 
