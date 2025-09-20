@@ -73,11 +73,12 @@ See [settings](https://github.com/astral-sh/ty/blob/main/docs/reference/editor-s
 
 ## Commands
 
-| Command              | Description                                  |
-| -------------------- | -------------------------------------------- |
-| ty: Restart server   | Restart the ty language server               |
-| ty: Show client logs | Open the "ty" output channel                 |
-| ty: Show server logs | Open the "ty Language Server" output channel |
+| Command                                          | Description                                     |
+| ------------------------------------------------ | ----------------------------------------------- |
+| ty: Restart server                               | Restart the ty language server                  |
+| ty: Show client logs                             | Open the "ty" output channel                    |
+| ty: Show server logs                             | Open the "ty Language Server" output channel    |
+| ty: Print debug information (native server only) | Print debug information about the native server |
 
 ## Requirements
 
