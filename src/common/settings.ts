@@ -12,6 +12,41 @@ type ImportStrategy = "fromEnvironment" | "useBundled";
 
 type LogLevel = "error" | "warn" | "info" | "debug" | "trace";
 
+
+type CodeAction = {
+  disableRuleComment?: {
+    enable?: boolean;
+  };
+  fixViolation?: {
+    enable?: boolean;
+  };
+};
+
+type Lint = {
+  enable?: boolean;
+  args?: string[];
+  run?: Run;
+  preview?: boolean;
+  select?: string[];
+  extendSelect?: string[];
+  ignore?: string[];
+};
+
+
+type Format = {
+  args?: string[];
+  preview?: boolean;
+  backend?: FormatterBackend;
+};
+
+type ConfigPreference = "editorFirst" | "filesystemFirst" | "editorOnly";
+
+type Run = "onType" | "onSave";
+
+type FormatterBackend = "internal" | "uv";
+
+type NativeServer = boolean | "on" | "off" | "auto";
+
 export interface InitializationOptions {
   logLevel?: LogLevel;
   logFile?: string;
@@ -122,4 +157,28 @@ export function checkIfConfigurationChanged(
     `${namespace}.inlayHints`,
   ];
   return settings.some((s) => e.affectsConfiguration(s));
+}
+
+export interface ISettings {
+  nativeServer: NativeServer;
+  cwd: string;
+  workspace: string;
+  path: string[];
+  ignoreStandardLibrary: boolean;
+  interpreter: string[];
+  configuration: string | object | null;
+  importStrategy: ImportStrategy;
+  codeAction: CodeAction;
+  enable: boolean;
+  showNotifications: string;
+  organizeImports: boolean;
+  fixAll: boolean;
+  lint: Lint;
+  format: Format;
+  exclude?: string[];
+  lineLength?: number;
+  configurationPreference?: ConfigPreference;
+  showSyntaxErrors: boolean;
+  logLevel?: LogLevel;
+  logFile?: string;
 }

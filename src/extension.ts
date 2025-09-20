@@ -21,10 +21,18 @@ import {
   onDidGrantWorkspaceTrust,
   registerCommand,
 } from "./common/vscodeapi";
+import {
+  createDebugInformationProvider,
+} from "./common/commands";
 
 let lsClient: LanguageClient | undefined;
 let restartInProgress = false;
 let restartQueued = false;
+
+
+function getClient(): LanguageClient | undefined {
+  return lsClient;
+}
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   // This is required to get server name and module. This should be
@@ -46,6 +54,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(outputChannel);
   context.subscriptions.push(traceOutputChannel);
   context.subscriptions.push(logger.channel);
+
+  //support for debug command.
+  context.subscriptions.push(
+    registerCommand(
+      `${serverId}.debugInformation`,
+      createDebugInformationProvider(getClient, serverId, context),
+    ),
+  );
 
   if (restartInProgress) {
     if (!restartQueued) {
