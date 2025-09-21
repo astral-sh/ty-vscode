@@ -21,14 +21,11 @@ import {
   onDidGrantWorkspaceTrust,
   registerCommand,
 } from "./common/vscodeapi";
-import {
-  createDebugInformationProvider,
-} from "./common/commands";
+import { createDebugInformationProvider } from "./common/commands";
 
 let lsClient: LanguageClient | undefined;
 let restartInProgress = false;
 let restartQueued = false;
-
 
 function getClient(): LanguageClient | undefined {
   return lsClient;

@@ -5,7 +5,6 @@ import { ISettings } from "./settings";
 
 const ISSUE_TRACKER = "https://github.com/astral-sh/ty/issues";
 
-
 /**
  * Creates a debug information provider for the `ty.printDebugInformation` command.
  *
@@ -49,7 +48,9 @@ export function createDebugInformationProvider(
         ],
       };
       return await lsClient.sendRequest(ExecuteCommandRequest.type, params).then(
-        (result) => {return result;},
+        (result) => {
+          return result;
+        },
         async () => {
           vscode.window.showErrorMessage(
             `Failed to print debug information. Please consider opening an issue at ${ISSUE_TRACKER} with steps to reproduce.`,

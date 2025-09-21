@@ -12,7 +12,6 @@ type ImportStrategy = "fromEnvironment" | "useBundled";
 
 type LogLevel = "error" | "warn" | "info" | "debug" | "trace";
 
-
 type CodeAction = {
   disableRuleComment?: {
     enable?: boolean;
@@ -31,7 +30,6 @@ type Lint = {
   extendSelect?: string[];
   ignore?: string[];
 };
-
 
 type Format = {
   args?: string[];
