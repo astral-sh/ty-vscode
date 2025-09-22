@@ -203,6 +203,11 @@
         "title": "Show server logs",
         "category": "ty",
         "command": "ty.showServerLogs"
+      },
+      {
+        "title": "Open debug information",
+        "category": "ty",
+        "command": "ty.debugInformation"
       }
     ]
   },
