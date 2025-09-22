@@ -205,7 +205,7 @@
         "command": "ty.showServerLogs"
       },
       {
-        "title": "Print debug information (native server only)",
+        "title": "Open debug information",
         "category": "ty",
         "command": "ty.debugInformation"
       }

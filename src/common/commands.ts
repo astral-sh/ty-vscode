@@ -1,7 +1,5 @@
 import * as vscode from "vscode";
 import { ExecuteCommandRequest, LanguageClient } from "vscode-languageclient/node";
-import { getConfiguration } from "./vscodeapi";
-import { ISettings } from "./settings";
 
 const ISSUE_TRACKER = "https://github.com/astral-sh/ty/issues";
 
@@ -15,71 +13,61 @@ export function createDebugInformationProvider(
   serverId: string,
   context: vscode.ExtensionContext,
 ) {
-  const configuration = getConfiguration(serverId) as unknown as ISettings;
-  if (configuration.nativeServer === false || configuration.nativeServer === "off") {
-    return async () => {
-      vscode.window.showInformationMessage(
-        "Debug information is only available when using the native server",
-      );
-    };
-  }
+  let content: string | null = null;
+  const eventEmitter = new vscode.EventEmitter<vscode.Uri>();
 
-  const contentProvider = new (class implements vscode.TextDocumentContentProvider {
-    readonly uri = vscode.Uri.parse("ty-server-debug://debug");
-    readonly eventEmitter = new vscode.EventEmitter<vscode.Uri>();
+  const contentProvider: vscode.TextDocumentContentProvider = {
+    onDidChange: eventEmitter.event,
 
-    async provideTextDocumentContent(): Promise<string> {
-      const lsClient = getClient();
-      if (!lsClient) {
-        return "";
-      }
-      const textEditor = vscode.window.activeTextEditor;
-      const notebookEditor = vscode.window.activeNotebookEditor;
-      const params = {
-        command: `${serverId}.printDebugInformation`,
-        arguments: [
-          {
-            textDocument: notebookEditor
-              ? { uri: notebookEditor.notebook.uri.toString() }
-              : textEditor
-                ? { uri: textEditor.document.uri.toString() }
-                : undefined,
-          },
-        ],
-      };
-      return await lsClient.sendRequest(ExecuteCommandRequest.type, params).then(
-        (result) => {
-          return result;
-        },
-        async () => {
-          vscode.window.showErrorMessage(
-            `Failed to print debug information. Please consider opening an issue at ${ISSUE_TRACKER} with steps to reproduce.`,
-          );
-          return "";
-        },
-      );
-    }
-
-    get onDidChange(): vscode.Event<vscode.Uri> {
-      return this.eventEmitter.event;
-    }
-  })();
+    async provideTextDocumentContent(): Promise<string | null> {
+      return content;
+    },
+  };
 
   context.subscriptions.push(
     vscode.workspace.registerTextDocumentContentProvider("ty-server-debug", contentProvider),
   );
 
   return async () => {
-    contentProvider.eventEmitter.fire(contentProvider.uri);
-    const document = await vscode.workspace.openTextDocument(contentProvider.uri);
-    const content = document.getText();
+    const uri = vscode.Uri.parse("ty-server-debug:/debug");
 
-    // Show the document only if it has content.
-    if (content.length > 0) {
-      void (await vscode.window.showTextDocument(document, {
-        viewColumn: vscode.ViewColumn.Two,
-        preserveFocus: true,
-      }));
+    const newContent = await getDebugContent(getClient, serverId);
+
+    if (newContent === content) {
+      return;
     }
+
+    content = newContent;
+    eventEmitter.fire(uri);
+    const document = await vscode.workspace.openTextDocument(uri);
+
+    await vscode.window.showTextDocument(document, {
+      viewColumn: vscode.ViewColumn.Two,
+      preserveFocus: true,
+    });
   };
+}
+
+async function getDebugContent(
+  getClient: () => LanguageClient | undefined,
+  serverId: string,
+): Promise<string | null> {
+  const lsClient = getClient();
+  if (lsClient == null) {
+    return null;
+  }
+
+  const params = {
+    command: `${serverId}.printDebugInformation`,
+    arguments: [],
+  };
+
+  try {
+    return await lsClient.sendRequest(ExecuteCommandRequest.type, params);
+  } catch {
+    vscode.window.showErrorMessage(
+      `Failed to open the debug information. Please consider opening an issue at ${ISSUE_TRACKER} with steps to reproduce.`,
+    );
+    return null;
+  }
 }
