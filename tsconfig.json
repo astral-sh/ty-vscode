@@ -6,8 +6,12 @@
     "sourceMap": true,
     "rootDir": "src",
     "strict": true,
+    // Workaround for a type error within `vscode-jsonrpc`.
+    // See https://github.com/microsoft/vscode-languageserver-node/issues/1590
+    "skipLibCheck": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noUnusedParameters": true
-  }
+  },
+  "include": ["src/**/*"]
 }
