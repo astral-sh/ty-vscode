@@ -7,53 +7,44 @@
 A Visual Studio Code extension for [ty](https://github.com/astral-sh/ty), an extremely fast
 Python type checker and language server, written in Rust.
 
-> **Warning:**
->
-> This extension uses the preview version of ty and is not ready for production use.
->
-> We're working hard to make ty stable and feature-complete, but until then, expect to encounter bugs,
-> missing features, and fatal errors.
-
 The extension ships with `ty==0.0.1a27`.
 
 ## Features
 
 Currently, the extension supports the following features:
 
-- Showing diagnostics in the editor
+- [File and workspace level diagnostics](https://code.visualstudio.com/docs/editing/editingevolved#_errors-warnings)
 - Hover type information for symbols
-- Go to definition
+- [Go to definition](https://code.visualstudio.com/docs/editing/editingevolved#_go-to-definition)
 - Go to declaration
-- Go to type definition
+- [Go to type definition](https://code.visualstudio.com/docs/editing/editingevolved#_go-to-type-definition)
+- [Go to symbol](https://code.visualstudio.com/docs/editing/editingevolved#_go-to-symbol)
+- [Open symbol by name](https://code.visualstudio.com/docs/editing/editingevolved#_open-symbol-by-name)
 - Find references
-- Inlay hints
-- Completions
+- [Inlay hints](https://code.visualstudio.com/docs/editing/editingevolved#_inlay-hints)
+- [Completions](https://code.visualstudio.com/docs/editing/intellisense)
 - Signature help
 - Highlight references of symbols
-- Document symbols
-- Workspace symbols
-- Semantic tokens
+- [Semantic highlighting](https://code.visualstudio.com/api/language-extensions/semantic-highlight-guide)
 
 And, the following experimental features:
 
 - Symbol renaming (`ty.experimental.rename`)
-
-> **Note:**
->
-> If you want to test the language server features like completions, go to type definition, etc., it's
-> recommended to disable the language server from the [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) (if installed) by adding the
-> following [setting](https://code.visualstudio.com/docs/python/settings-reference#_intellisense-engine-settings) to your `settings.json`:
->
-> ```json
-> {
->   "python.languageServer": "None"
-> }
-> ```
+- Auto import completions (`ty.experimental.autoImport`)
 
 ## Usage
 
 Once installed in Visual Studio Code, ty will automatically execute when you open or edit a
 Python or Jupyter Notebook file.
+
+It's recommended to disable the language server from the [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) to avoid running two Python language servers
+by adding the following [setting](https://code.visualstudio.com/docs/python/settings-reference#_intellisense-engine-settings) to your `settings.json`:
+
+```json
+{
+  "python.languageServer": "None"
+}
+```
 
 If you don't want to use ty for a specific workspace, [disable this extension](https://code.visualstudio.com/docs/editor/extension-marketplace#_disable-an-extension)
 in VS code.
@@ -89,6 +80,14 @@ itself is compatible with Python 3.8 to 3.13.
 
 See the [troubleshooting guide](./TROUBLESHOOTING.md) to get more information on how to
 debug issues with the extension or the language server.
+
+## Publisher
+
+This extension is published under the [`astral-sh`](https://marketplace.visualstudio.com/publishers/astral-sh) account, which differs from
+our [Ruff extension](https://marketplace.visualstudio.com/publishers/charliermarsh) that uses
+the verified "charliermarsh" publisher. Both extensions are official products from Astral.
+We are currently working with the VS Code Marketplace team to complete the verification process
+for this extension. For more information, see [issue #14](https://github.com/astral-sh/ty-vscode/issues/14).
 
 ## License
 
