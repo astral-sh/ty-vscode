@@ -9,6 +9,10 @@ Python type checker and language server, written in Rust.
 
 The extension ships with `ty==0.0.1a27`.
 
+## Installation
+
+Install this extension from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=astral-sh.ty).
+
 ## Features
 
 Currently, the extension supports the following features:
@@ -38,7 +42,7 @@ Once installed in Visual Studio Code, ty will automatically execute when you ope
 Python or Jupyter Notebook file.
 
 It's recommended to disable the language server from the [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) to avoid running two Python language servers
-by adding the following [setting](https://code.visualstudio.com/docs/python/settings-reference#_intellisense-engine-settings) to your `settings.json`:
+by adding the following [setting](https://code.visualstudio.com/docs/python/settings-reference#_intellisense-engine-settings) to your [`settings.json`](https://code.visualstudio.com/docs/configure/settings#_settings-json-file):
 
 ```json
 {
