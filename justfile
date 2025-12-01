@@ -5,7 +5,7 @@ default:
 # Lock the Python and Node.js dependencies
 lock:
   uv pip compile --python-version 3.8 --generate-hashes -o ./requirements.txt ./pyproject.toml
-  npm install --package-lock-only
+  npm install --package-lock-only --ignore-scripts
 
 # Install the dependencies for the bundled tool
 setup:
@@ -13,7 +13,7 @@ setup:
 
 # Install everything needed for local development
 install: setup
-  npm ci
+  npm ci --ignore-scripts
 
 # Check for code quality and type errors
 check:
@@ -33,7 +33,7 @@ fmt:
 
 # Build the VS Code package
 build-package: setup
-  npm ci
+  npm ci --ignore-scripts
   npm run vsce-package
 
 # Clean out the build artifacts
