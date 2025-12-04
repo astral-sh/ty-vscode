@@ -1,8 +1,8 @@
 [project]
 name = "ty-vscode"
-version = "2025.61.0"
+version = "2025.63.0"
 requires-python = ">=3.8"
-dependencies = ["ty==0.0.1a30"]
+dependencies = ["ty==0.0.1a31"]
 
 [tool.ruff]
 line-length = 88
