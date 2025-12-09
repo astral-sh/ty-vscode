@@ -120,6 +120,7 @@ export function checkIfConfigurationChanged(
     `${namespace}.disableLanguageServices`,
     `${namespace}.experimental`,
     `${namespace}.inlayHints`,
+    `${namespace}.completions`,
   ];
   return settings.some((s) => e.affectsConfiguration(s));
 }

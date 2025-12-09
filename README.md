@@ -34,7 +34,6 @@ Currently, the extension supports the following features:
 And, the following experimental features:
 
 - Symbol renaming (`ty.experimental.rename`)
-- Auto import completions (`ty.experimental.autoImport`)
 
 ## Usage
 
