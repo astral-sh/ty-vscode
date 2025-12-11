@@ -6,6 +6,27 @@ import {
 } from "vscode-languageclient";
 import { Uri } from "vscode";
 import type { PythonExtension } from "@vscode/python-extension";
+import type { InitializationOptions, ExtensionSettings } from "./common/settings";
+
+// Keys that are handled by the extension and should not be sent to the server
+type ExtensionOnlyKeys = keyof InitializationOptions | keyof ExtensionSettings | "trace";
+
+const EXTENSION_ONLY_KEYS = {
+  // InitializationOptions
+  logLevel: true,
+  logFile: true,
+  // ExtensionSettings
+  cwd: true,
+  path: true,
+  interpreter: true,
+  importStrategy: true,
+  // Client-handled settings
+  trace: true,
+} as const satisfies Record<ExtensionOnlyKeys, true>;
+
+function isExtensionOnlyKey(key: string): key is ExtensionOnlyKeys {
+  return key in EXTENSION_ONLY_KEYS;
+}
 
 interface TyMiddleware extends Middleware {
   isDidChangeConfigurationRegistered(): boolean;
@@ -90,8 +111,13 @@ export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddlewa
                       },
                     };
 
+              // Filter out extension-only settings that shouldn't be sent to the server
+              const serverSettings = Object.fromEntries(
+                Object.entries(result ?? {}).filter(([key]) => !isExtensionOnlyKey(key)),
+              );
+
               return {
-                ...result,
+                ...serverSettings,
 
                 pythonExtension: {
                   ...result?.pythonExtension,
@@ -99,6 +125,8 @@ export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddlewa
                 },
               };
             }
+
+            return result;
           }),
         );
       },
