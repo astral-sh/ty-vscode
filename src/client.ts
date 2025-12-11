@@ -11,27 +11,22 @@ import type { InitializationOptions, ExtensionSettings } from "./common/settings
 // Keys that are handled by the extension and should not be sent to the server
 type ExtensionOnlyKeys = keyof InitializationOptions | keyof ExtensionSettings | "trace";
 
-const EXTENSION_ONLY_KEYS = [
+const EXTENSION_ONLY_KEYS = {
   // InitializationOptions
-  "logLevel",
-  "logFile",
+  logLevel: true,
+  logFile: true,
   // ExtensionSettings
-  "cwd",
-  "path",
-  "interpreter",
-  "importStrategy",
+  cwd: true,
+  path: true,
+  interpreter: true,
+  importStrategy: true,
   // Client-handled settings
-  "trace",
-] as const satisfies readonly ExtensionOnlyKeys[];
+  trace: true,
+} as const satisfies Record<ExtensionOnlyKeys, true>;
 
-// Compile-time check that all extension-only keys are included
-type AssertAllKeys<
-  T extends readonly ExtensionOnlyKeys[],
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _Check = ExtensionOnlyKeys extends T[number] ? true : never,
-> = T;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-type _AssertComplete = AssertAllKeys<typeof EXTENSION_ONLY_KEYS>;
+function isExtensionOnlyKey(key: string): key is ExtensionOnlyKeys {
+  return key in EXTENSION_ONLY_KEYS;
+}
 
 interface TyMiddleware extends Middleware {
   isDidChangeConfigurationRegistered(): boolean;
@@ -118,9 +113,7 @@ export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddlewa
 
               // Filter out extension-only settings that shouldn't be sent to the server
               const serverSettings = Object.fromEntries(
-                Object.entries(result ?? {}).filter(
-                  ([key]) => !EXTENSION_ONLY_KEYS.includes(key as ExtensionOnlyKeys),
-                ),
+                Object.entries(result ?? {}).filter(([key]) => !isExtensionOnlyKey(key)),
               );
 
               return {
