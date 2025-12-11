@@ -27,8 +27,10 @@ const EXTENSION_ONLY_KEYS = [
 // Compile-time check that all extension-only keys are included
 type AssertAllKeys<
   T extends readonly ExtensionOnlyKeys[],
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _Check = ExtensionOnlyKeys extends T[number] ? true : never,
 > = T;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type _AssertComplete = AssertAllKeys<typeof EXTENSION_ONLY_KEYS>;
 
 interface TyMiddleware extends Middleware {
