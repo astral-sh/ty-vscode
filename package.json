@@ -101,12 +101,6 @@
           "scope": "window",
           "type": "string"
         },
-        "ty.experimental.rename": {
-          "default": false,
-          "markdownDescription": "Enable experimental support for renaming symbols in ty.",
-          "scope": "window",
-          "type": "boolean"
-        },
         "ty.importStrategy": {
           "default": "fromEnvironment",
           "markdownDescription": "Strategy for loading the `ty` executable. `fromEnvironment` picks up ty from the environment, falling back to the bundled version if needed. `useBundled` uses the version bundled with the extension.",
