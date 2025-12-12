@@ -30,10 +30,7 @@ Currently, the extension supports the following features:
 - Signature help
 - Highlight references of symbols
 - [Semantic highlighting](https://code.visualstudio.com/api/language-extensions/semantic-highlight-guide)
-
-And, the following experimental features:
-
-- Symbol renaming (`ty.experimental.rename`)
+- Symbol renaming
 
 ## Usage
 
