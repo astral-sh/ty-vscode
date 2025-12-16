@@ -85,9 +85,7 @@ debug issues with the extension or the language server.
 
 This extension is published under the [`astral-sh`](https://marketplace.visualstudio.com/publishers/astral-sh) account, which differs from
 our [Ruff extension](https://marketplace.visualstudio.com/publishers/charliermarsh) that uses
-the verified "charliermarsh" publisher. Both extensions are official products from Astral.
-We are currently working with the VS Code Marketplace team to complete the verification process
-for this extension. For more information, see [issue #14](https://github.com/astral-sh/ty-vscode/issues/14).
+the "charliermarsh" publisher. Both extensions are official products from Astral.
 
 ## License
 
