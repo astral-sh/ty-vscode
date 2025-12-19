@@ -84,11 +84,13 @@
           "markdownDescription": "Analysis scope for showing diagnostics.",
           "enum": [
             "openFilesOnly",
-            "workspace"
+            "workspace",
+            "off"
           ],
           "enumDescriptions": [
             "Analyzes and reports errors on only open files.",
-            "Analyzes and reports errors on all files in the workspace."
+            "Analyzes and reports errors on all files in the workspace.",
+            "Turn all diagnostics off. Use ty as a language server only."
           ],
           "scope": "window",
           "type": "string"
