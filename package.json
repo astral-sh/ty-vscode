@@ -73,6 +73,18 @@
   "contributes": {
     "configuration": {
       "properties": {
+        "ty.configuration": {
+          "default": null,
+          "markdownDescription": "Inline JSON configuration for ty settings. Overrides settings in a configuration file. For example\n\n```json\n{\n  \"rules\": {\n    \"unresolved-reference\": \"ignore\"\n  }\n}\n``` ",
+          "scope": "window",
+          "type": "object"
+        },
+        "ty.configurationFile": {
+          "default": null,
+          "markdownDescription": "Path to a `ty.toml` configuration file.",
+          "scope": "window",
+          "type": "string"
+        },
         "ty.disableLanguageServices": {
           "default": false,
           "markdownDescription": "Whether to disable all language services for ty like completions, hover, goto definition, etc.",
