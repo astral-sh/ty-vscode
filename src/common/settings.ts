@@ -116,6 +116,8 @@ export function checkIfConfigurationChanged(
     `${namespace}.logLevel`,
     `${namespace}.logFile`,
     // TODO: Remove these once `workspace/didChangeConfiguration` is supported in the server
+    `${namespace}.configuration`,
+    `${namespace}.configurationFile`,
     `${namespace}.diagnosticMode`,
     `${namespace}.disableLanguageServices`,
     `${namespace}.experimental`,
