@@ -24,9 +24,9 @@ export interface ExtensionSettings {
   importStrategy: ImportStrategy;
 }
 
-function resolveVariables(value: string[], workspace?: WorkspaceFolder): string[];
-function resolveVariables(value: string, workspace?: WorkspaceFolder): string;
-function resolveVariables(
+export function resolveVariables(value: string[], workspace?: WorkspaceFolder): string[];
+export function resolveVariables(value: string, workspace?: WorkspaceFolder): string;
+export function resolveVariables(
   value: string | string[],
   workspace?: WorkspaceFolder,
 ): string | string[] | null {

@@ -4,9 +4,13 @@ import {
   CancellationToken,
   DidChangeConfigurationNotification,
 } from "vscode-languageclient";
-import { Uri } from "vscode";
+import { Uri, workspace } from "vscode";
 import type { PythonExtension } from "@vscode/python-extension";
-import type { InitializationOptions, ExtensionSettings } from "./common/settings";
+import {
+  resolveVariables,
+  type InitializationOptions,
+  type ExtensionSettings,
+} from "./common/settings";
 
 // Keys that are handled by the extension and should not be sent to the server
 type ExtensionOnlyKeys = keyof InitializationOptions | keyof ExtensionSettings | "trace";
@@ -115,6 +119,15 @@ export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddlewa
               const serverSettings = Object.fromEntries(
                 Object.entries(result ?? {}).filter(([key]) => !isExtensionOnlyKey(key)),
               );
+
+              // Resolve VS Code variables from certain settings
+              const workspaceFolder = scopeUri ? workspace.getWorkspaceFolder(scopeUri) : undefined;
+              if (typeof serverSettings.configurationFile === "string") {
+                serverSettings.configurationFile = resolveVariables(
+                  serverSettings.configurationFile,
+                  workspaceFolder,
+                );
+              }
 
               return {
                 ...serverSettings,
