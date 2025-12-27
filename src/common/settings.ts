@@ -7,7 +7,9 @@ import type {
 import * as vscode from "vscode";
 import { getInterpreterDetails } from "./python";
 import { getConfiguration, getWorkspaceFolders } from "./vscodeapi";
+import { logger } from "./logger";
 
+type Version = { major: number; minor: number; patch: number };
 type ImportStrategy = "fromEnvironment" | "useBundled";
 
 type LogLevel = "error" | "warn" | "info" | "debug" | "trace";
@@ -109,12 +111,14 @@ export function checkIfConfigurationChanged(
   e: ConfigurationChangeEvent,
   namespace: string,
 ): boolean {
+  // If you add a new setting here, make sure to also add it to `SETTING_SUPPORTED_SINCE`.
   const settings = [
     `${namespace}.importStrategy`,
     `${namespace}.interpreter`,
     `${namespace}.path`,
     `${namespace}.logLevel`,
     `${namespace}.logFile`,
+
     // TODO: Remove these once `workspace/didChangeConfiguration` is supported in the server
     `${namespace}.configuration`,
     `${namespace}.configurationFile`,
@@ -126,4 +130,49 @@ export function checkIfConfigurationChanged(
     `${namespace}.showSyntaxErrors`,
   ];
   return settings.some((s) => e.affectsConfiguration(s));
+}
+
+const SETTING_SUPPORTED_SINCE: {
+  [key: string]: { major: number; minor: number; patch: number; defaultValue: unknown };
+} = {
+  configuration: { major: 0, minor: 0, patch: 6, defaultValue: null },
+  configurationFile: { major: 0, minor: 0, patch: 6, defaultValue: null },
+};
+
+export function checkSettingSupported(
+  setting: string,
+  value: unknown,
+  serverVersion: { major: number; minor: number; patch: number },
+): boolean {
+  const configInformation = SETTING_SUPPORTED_SINCE[setting];
+
+  if (configInformation == null) {
+    return true;
+  }
+
+  if (isNewerThan(serverVersion, configInformation)) {
+    return true;
+  }
+
+  // eslint-disable-next-line eqeqeq
+  if (value == configInformation.defaultValue) {
+    return false;
+  }
+
+  const message = `Ignoring setting "${setting}" because it is not supported by your ty version (${serverVersion.major}.${serverVersion.minor}.${serverVersion.patch}). The setting was added in ${configInformation.major}.${configInformation.minor}.${configInformation.patch}.`;
+
+  vscode.window.showWarningMessage(message);
+  logger.warn(message);
+
+  return false;
+}
+
+function isNewerThan(version: Version, compareTo: Version): boolean {
+  if (version.major !== compareTo.major) {
+    return version.major > compareTo.major;
+  }
+  if (version.minor !== compareTo.minor) {
+    return version.minor > compareTo.minor;
+  }
+  return version.patch >= compareTo.patch;
 }

@@ -10,6 +10,7 @@ import {
   resolveVariables,
   type InitializationOptions,
   type ExtensionSettings,
+  checkSettingSupported,
 } from "./common/settings";
 
 // Keys that are handled by the extension and should not be sent to the server
@@ -19,11 +20,13 @@ const EXTENSION_ONLY_KEYS = {
   // InitializationOptions
   logLevel: true,
   logFile: true,
+
   // ExtensionSettings
   cwd: true,
   path: true,
   interpreter: true,
   importStrategy: true,
+
   // Client-handled settings
   trace: true,
 } as const satisfies Record<ExtensionOnlyKeys, true>;
@@ -34,14 +37,20 @@ function isExtensionOnlyKey(key: string): key is ExtensionOnlyKeys {
 
 interface TyMiddleware extends Middleware {
   isDidChangeConfigurationRegistered(): boolean;
+  setServerVersion(major: number, minor: number, patch: number): void;
 }
 
 export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddleware {
   const didChangeRegistrations = new Set<string>();
+  let serverVersion: null | { major: number; minor: number; patch: number } = null;
 
   const middleware: TyMiddleware = {
     isDidChangeConfigurationRegistered() {
       return didChangeRegistrations.size > 0;
+    },
+
+    setServerVersion(major: number, minor: number, patch: number) {
+      serverVersion = { major, minor, patch };
     },
 
     async handleRegisterCapability(params, next) {
@@ -117,7 +126,11 @@ export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddlewa
 
               // Filter out extension-only settings that shouldn't be sent to the server
               const serverSettings = Object.fromEntries(
-                Object.entries(result ?? {}).filter(([key]) => !isExtensionOnlyKey(key)),
+                Object.entries(result ?? {}).filter(
+                  ([key, value]) =>
+                    !isExtensionOnlyKey(key) &&
+                    (serverVersion == null || checkSettingSupported(key, value, serverVersion)),
+                ),
               );
 
               // Resolve VS Code variables from certain settings
