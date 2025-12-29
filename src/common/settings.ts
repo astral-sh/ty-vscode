@@ -123,6 +123,7 @@ export function checkIfConfigurationChanged(
     `${namespace}.experimental`,
     `${namespace}.inlayHints`,
     `${namespace}.completions`,
+    `${namespace}.showSyntaxErrors`,
   ];
   return settings.some((s) => e.affectsConfiguration(s));
 }
