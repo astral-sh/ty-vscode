@@ -230,7 +230,7 @@ export async function startServer(
               const patchInt = parseInt(patch);
 
               if (!isNaN(majorInt) && !isNaN(minorInt) && !isNaN(patchInt)) {
-                middleware.setServerVersion(parseInt(major), parseInt(minor), parseInt(patch));
+                middleware.setServerVersion(majorInt, minorInt, patchInt);
               } else {
                 logger.info(`Failed to parse server version numbers (${major}.${minor}.${patch})`);
               }

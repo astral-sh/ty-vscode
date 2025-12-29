@@ -137,6 +137,7 @@ const SETTING_SUPPORTED_SINCE: {
 } = {
   configuration: { major: 0, minor: 0, patch: 6, defaultValue: null },
   configurationFile: { major: 0, minor: 0, patch: 6, defaultValue: null },
+  showSyntaxErrors: { major: 0, minor: 0, patch: 8, defaultValue: true },
 };
 
 export function checkSettingSupported(
@@ -144,22 +145,22 @@ export function checkSettingSupported(
   value: unknown,
   serverVersion: { major: number; minor: number; patch: number },
 ): boolean {
-  const configInformation = SETTING_SUPPORTED_SINCE[setting];
+  const minVersion = SETTING_SUPPORTED_SINCE[setting];
 
-  if (configInformation == null) {
+  if (minVersion == null) {
     return true;
   }
 
-  if (isNewerThan(serverVersion, configInformation)) {
+  if (isNewerThan(serverVersion, minVersion)) {
     return true;
   }
 
   // eslint-disable-next-line eqeqeq
-  if (value == configInformation.defaultValue) {
+  if (value == minVersion.defaultValue) {
     return false;
   }
 
-  const message = `Ignoring setting "${setting}" because it is not supported by your ty version (${serverVersion.major}.${serverVersion.minor}.${serverVersion.patch}). The setting was added in ${configInformation.major}.${configInformation.minor}.${configInformation.patch}.`;
+  const message = `Ignoring setting "${setting}" because it is not supported by your ty version (${serverVersion.major}.${serverVersion.minor}.${serverVersion.patch}). The setting was added in ${minVersion.major}.${minVersion.minor}.${minVersion.patch}.`;
 
   vscode.window.showWarningMessage(message);
   logger.warn(message);
