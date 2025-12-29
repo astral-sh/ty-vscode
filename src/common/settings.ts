@@ -133,19 +133,19 @@ export function checkIfConfigurationChanged(
 }
 
 const SETTING_SUPPORTED_SINCE: {
-  [key: string]: { major: number; minor: number; patch: number; defaultValue: unknown };
+  [key: string]: { version: Version; defaultValue: unknown };
 } = {
-  configuration: { major: 0, minor: 0, patch: 6, defaultValue: null },
-  configurationFile: { major: 0, minor: 0, patch: 6, defaultValue: null },
-  showSyntaxErrors: { major: 0, minor: 0, patch: 8, defaultValue: true },
+  configuration: { version: { major: 0, minor: 0, patch: 6 }, defaultValue: null },
+  configurationFile: { version: { major: 0, minor: 0, patch: 6 }, defaultValue: null },
+  showSyntaxErrors: { version: { major: 0, minor: 0, patch: 8 }, defaultValue: true },
 };
 
 export function checkSettingSupported(
   setting: string,
   value: unknown,
-  serverVersion: { major: number; minor: number; patch: number },
+  serverVersion: Version,
 ): boolean {
-  const minVersion = SETTING_SUPPORTED_SINCE[setting];
+  const { version: minVersion, defaultValue } = SETTING_SUPPORTED_SINCE[setting];
 
   if (minVersion == null) {
     return true;
@@ -156,7 +156,7 @@ export function checkSettingSupported(
   }
 
   // eslint-disable-next-line eqeqeq
-  if (value == minVersion.defaultValue) {
+  if (value == defaultValue) {
     return false;
   }
 
