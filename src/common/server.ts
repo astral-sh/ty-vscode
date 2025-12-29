@@ -207,10 +207,40 @@ export async function startServer(
           break;
         case State.Running:
           logger.debug("Server State: Running");
-          updateStatus(undefined, LanguageStatusSeverity.Information, false);
+          let version = newLSClient?.initializeResult?.serverInfo?.version;
+          updateStatus(undefined, LanguageStatusSeverity.Information, false, version);
+
+          if (version != null) {
+            logger.info(`ty server version: ${version}`);
+            const plusIndex = version.indexOf("+");
+
+            // 0.14.10+96 (8cca7bb69 2025-12-27)
+            if (plusIndex !== -1) {
+              version = version.substring(0, plusIndex);
+            }
+
+            // ruff/0.14.10+96 (8cca7bb69 2025-12-27)
+            if (version.startsWith("ruff/")) {
+              // Ruff tag, version is meaningless
+            } else {
+              const [major, minor, patch] = version?.split(".") ?? [];
+
+              const majorInt = parseInt(major);
+              const minorInt = parseInt(minor);
+              const patchInt = parseInt(patch);
+
+              if (!isNaN(majorInt) && !isNaN(minorInt) && !isNaN(patchInt)) {
+                middleware.setServerVersion(majorInt, minorInt, patchInt);
+              } else {
+                logger.info(`Failed to parse server version numbers (${major}.${minor}.${patch})`);
+              }
+            }
+          }
+
           break;
       }
     }),
+
     newLSClient.onNotification(ShowMessageNotification.type, (params) => {
       const showMessageMethod =
         params.type === MessageType.Error
