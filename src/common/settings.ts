@@ -133,7 +133,7 @@ export function checkIfConfigurationChanged(
 }
 
 const SETTING_SUPPORTED_SINCE: {
-  [key: string]: { version: Version; defaultValue: unknown };
+  [key: string]: { version: Version; defaultValue: unknown } | undefined;
 } = {
   configuration: { version: { major: 0, minor: 0, patch: 6 }, defaultValue: null },
   configurationFile: { version: { major: 0, minor: 0, patch: 6 }, defaultValue: null },
@@ -145,11 +145,13 @@ export function checkSettingSupported(
   value: unknown,
   serverVersion: Version,
 ): boolean {
-  const { version: minVersion, defaultValue } = SETTING_SUPPORTED_SINCE[setting];
+  const settingRequirements = SETTING_SUPPORTED_SINCE[setting];
 
-  if (minVersion == null) {
+  if (settingRequirements == null) {
     return true;
   }
+
+  const { version: minVersion, defaultValue } = settingRequirements;
 
   if (isNewerThan(serverVersion, minVersion)) {
     return true;
