@@ -2,7 +2,7 @@
   "name": "ty",
   "displayName": "ty",
   "description": "A Visual Studio Code extension with support for the ty type checker and language server.",
-  "version": "2025.78.0",
+  "version": "2025.80.0",
   "serverInfo": {
     "name": "ty",
     "module": "ty"
