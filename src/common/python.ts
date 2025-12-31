@@ -1,6 +1,7 @@
-import { commands, type Disposable, type Event, EventEmitter } from "vscode";
+import { commands, type Disposable, type Event, EventEmitter, extensions } from "vscode";
 import { logger } from "./logger";
-import { PythonExtension, Resource, type ResolvedEnvironment } from "@vscode/python-extension";
+import { PythonEnvironmentApi } from "../vscode-python-environments";
+import { ResolvedEnvironment, Resource } from "@vscode/python-extension";
 
 export interface IInterpreterDetails {
   path?: string[];
@@ -11,22 +12,36 @@ const onDidChangePythonInterpreterEvent = new EventEmitter<IInterpreterDetails>(
 export const onDidChangePythonInterpreter: Event<IInterpreterDetails> =
   onDidChangePythonInterpreterEvent.event;
 
-let _api: PythonExtension | undefined;
-export async function getPythonExtensionAPI(): Promise<PythonExtension> {
-  const api = _api || (await PythonExtension.api());
-  _api = api;
-  return api;
+let _api: PythonEnvironmentApi | undefined;
+export async function getPythonEnvironmentsAPI(): Promise<PythonEnvironmentApi> {
+  if (_api != null) {
+    return _api;
+  }
+
+  const extension = extensions.getExtension("ms-python.vscode-python-envs");
+  if (!extension) {
+    throw new Error("Python Environments extension not found.");
+  }
+  if (extension?.isActive) {
+    _api = extension.exports as PythonEnvironmentApi;
+    return _api;
+  }
+
+  await extension.activate();
+
+  _api = extension.exports as PythonEnvironmentApi;
+  return _api;
 }
 
 export async function initializePython(disposables: Disposable[]): Promise<void> {
   try {
-    const api = await getPythonExtensionAPI();
+    const api = await getPythonEnvironmentsAPI();
 
     disposables.push(
-      api.environments.onDidChangeActiveEnvironmentPath((e) => {
+      api.onDidChangeEnvironment((e) => {
         onDidChangePythonInterpreterEvent.fire({
-          path: [e.path],
-          resource: e.resource,
+          path: [e.new?.environmentPath],
+          resource: e.uri,
         });
       }),
     );
@@ -41,29 +56,19 @@ export async function initializePython(disposables: Disposable[]): Promise<void>
 export async function resolveInterpreter(
   interpreter: string[],
 ): Promise<ResolvedEnvironment | undefined> {
-  const api = await getPythonExtensionAPI();
-  return api.environments.resolveEnvironment(interpreter[0]);
+  const api = await getPythonEnvironmentsAPI();
+  return api.resolveEnvironment(interpreter[0]);
 }
 
 export async function getInterpreterDetails(resource?: Resource): Promise<IInterpreterDetails> {
-  const api = await getPythonExtensionAPI();
-  const environment = await api.environments.resolveEnvironment(
-    api.environments.getActiveEnvironmentPath(resource),
+  const api = await getPythonEnvironmentsAPI();
+  const environment = await api.resolveEnvironment(
+    api.getActiveEnvironmentPath(resource),
   );
   if (environment?.executable.uri && checkVersion(environment)) {
     return { path: [environment?.executable.uri.fsPath], resource };
   }
   return { path: undefined, resource };
-}
-
-export async function getDebuggerPath(): Promise<string | undefined> {
-  const api = await getPythonExtensionAPI();
-  return api.debug.getDebuggerPackagePath();
-}
-
-export async function runPythonExtensionCommand(command: string, ...rest: any[]) {
-  await getPythonExtensionAPI();
-  return await commands.executeCommand(command, ...rest);
 }
 
 export function checkVersion(resolved: ResolvedEnvironment): boolean {

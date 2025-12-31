@@ -35,7 +35,7 @@
     "Programming Languages"
   ],
   "extensionDependencies": [
-    "ms-python.python"
+    "ms-python.vscode-python-envs"
   ],
   "capabilities": {
     "untrustedWorkspaces": {
