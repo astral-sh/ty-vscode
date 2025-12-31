@@ -1,7 +1,7 @@
-import { commands, type Disposable, type Event, EventEmitter, extensions } from "vscode";
+import { commands, type Disposable, type Event, EventEmitter, extensions, Uri } from "vscode";
 import { logger } from "./logger";
 import { PythonEnvironmentApi } from "../vscode-python-environments";
-import { ResolvedEnvironment, Resource } from "@vscode/python-extension";
+import { ResolvedEnvironment } from "@vscode/python-extension";
 
 export interface IInterpreterDetails {
   path?: string[];
@@ -38,10 +38,10 @@ export async function initializePython(disposables: Disposable[]): Promise<void>
     const api = await getPythonEnvironmentsAPI();
 
     disposables.push(
-      api.onDidChangeEnvironment((e) => {
+      api.onDidChangeActiveEnvironmentPath((e) => {
         onDidChangePythonInterpreterEvent.fire({
-          path: [e.new?.environmentPath],
-          resource: e.uri,
+          path: [e.path],
+          resource: e.resource,
         });
       }),
     );
@@ -55,18 +55,16 @@ export async function initializePython(disposables: Disposable[]): Promise<void>
 
 export async function resolveInterpreter(
   interpreter: string[],
-): Promise<ResolvedEnvironment | undefined> {
+): Promise<PythonEnvironment | undefined> {
   const api = await getPythonEnvironmentsAPI();
   return api.resolveEnvironment(interpreter[0]);
 }
 
-export async function getInterpreterDetails(resource?: Resource): Promise<IInterpreterDetails> {
+export async function getInterpreterDetails(resource?: Uri): Promise<IInterpreterDetails> {
   const api = await getPythonEnvironmentsAPI();
-  const environment = await api.resolveEnvironment(
-    api.getActiveEnvironmentPath(resource),
-  );
-  if (environment?.executable.uri && checkVersion(environment)) {
-    return { path: [environment?.executable.uri.fsPath], resource };
+  const environment = await api.getEnvironment(resource);
+  if (environment?.execInfo.run.executable && checkVersion(environment)) {
+    return { path: [environment?.execInfo.run.executable], resource };
   }
   return { path: undefined, resource };
 }
