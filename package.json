@@ -215,7 +215,10 @@
         "category": "ty",
         "command": "ty.debugInformation"
       }
-    ]
+    ],
+    "configurationDefaults": {
+      "python.languageServer": "None"
+    }
   },
   "dependencies": {
     "@vscode/python-extension": "^1.0.5",
