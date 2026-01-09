@@ -74,7 +74,7 @@ See the ty [editor settings reference](https://docs.astral.sh/ty/reference/edito
 ## Requirements
 
 This extension requires a version of the VSCode Python extension that supports Python 3.8+. ty
-itself is compatible with Python 3.8 to 3.13.
+itself is compatible with Python 3.8 to 3.14.
 
 ## Getting help
 
