@@ -1,7 +1,7 @@
 # ty extension for Visual Studio Code
 
-[![image](https://img.shields.io/pypi/v/ty/0.0.10.svg)](https://pypi.python.org/pypi/ty)
-[![image](https://img.shields.io/pypi/l/ty/0.0.10.svg)](https://pypi.python.org/pypi/ty)
+[![image](https://img.shields.io/pypi/v/ty/0.0.11.svg)](https://pypi.python.org/pypi/ty)
+[![image](https://img.shields.io/pypi/l/ty/0.0.11.svg)](https://pypi.python.org/pypi/ty)
 [![Actions status](https://github.com/astral-sh/ty-vscode/workflows/CI/badge.svg)](https://github.com/astral-sh/ty-vscode/actions)
 
 A Visual Studio Code extension for [ty](https://github.com/astral-sh/ty), an extremely fast
