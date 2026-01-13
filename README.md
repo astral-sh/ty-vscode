@@ -40,13 +40,13 @@ Python or Jupyter Notebook file.
 The extension automatically disables the language server from the [Python
 extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
 to avoid running two Python language servers. This is done by setting
-[`python.languageServer`](https://code.visualstudio.com/docs/python/settings-reference#_intellisense-engine-settings)
-to `"None"` as a default configuration.
+[`python.languageServer`](https://code.visualstudio.com/docs/python/settings-reference#_intellisense-engine-settings) to `"None"` as a default configuration.
 
 If you prefer to use ty only for type checking and want to use another language
 server for capabilities like hover, auto-completions, etc., you can override
-this by explicitly setting `python.languageServer` in your
-[`settings.json`](https://code.visualstudio.com/docs/configure/settings#_settings-json-file):
+this by explicitly setting [`python.languageServer`](https://code.visualstudio.com/docs/python/settings-reference#_intellisense-engine-settings) and
+[`ty.disableLanguageServices`](https://docs.astral.sh/ty/reference/editor-settings/#disablelanguageservices)
+in your [`settings.json`](https://code.visualstudio.com/docs/configure/settings#_settings-json-file):
 
 ```jsonc
 {
