@@ -1,5 +1,20 @@
 # ty extension for Visual Studio Code
 
+> **Notice:** This repository is a customized build of the upstream ty VS Code
+> extension. Changes will be listed here(TODO).
+
+working with config(with `pixi`)
+
+```jsonc
+  // needs `pixi g i ty`
+  "ty.importStrategy": "fromEnvironment",
+  "ty.interpreter": [
+    "${workspaceFolder}/.pixi/envs/default/bin/python",
+  ],
+```
+
+---
+
 [![image](https://img.shields.io/pypi/v/ty/0.0.10.svg)](https://pypi.python.org/pypi/ty)
 [![image](https://img.shields.io/pypi/l/ty/0.0.10.svg)](https://pypi.python.org/pypi/ty)
 [![Actions status](https://github.com/astral-sh/ty-vscode/workflows/CI/badge.svg)](https://github.com/astral-sh/ty-vscode/actions)

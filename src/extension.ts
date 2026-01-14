@@ -2,7 +2,6 @@ import * as vscode from "vscode";
 import type { LanguageClient } from "vscode-languageclient/node";
 import { LazyOutputChannel, logger } from "./common/logger";
 import {
-  checkVersion,
   initializePython,
   onDidChangePythonInterpreter,
   resolveInterpreter,
@@ -108,9 +107,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           return;
         }
 
-        logger.info(`Using interpreter: ${settings.interpreter.join(" ")}`);
-        const resolvedEnvironment = await resolveInterpreter(settings.interpreter);
-        if (resolvedEnvironment === undefined) {
+        logger.info(`Trying interpreters: ${settings.interpreter.join(" ")}`);
+        const resolvedInterpreter = await resolveInterpreter(settings.interpreter);
+        if (resolvedInterpreter === undefined) {
           updateStatus(
             vscode.l10n.t("Python interpreter not found."),
             vscode.LanguageStatusSeverity.Error,
@@ -122,9 +121,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           return;
         }
 
-        if (!checkVersion(resolvedEnvironment)) {
-          return;
-        }
+        settings.interpreter = [resolvedInterpreter.path];
+        logger.info(`Using interpreter: ${resolvedInterpreter.path}`);
       }
 
       lsClient = await startServer(

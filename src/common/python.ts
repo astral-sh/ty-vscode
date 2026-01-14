@@ -7,6 +7,11 @@ export interface IInterpreterDetails {
   resource?: Resource;
 }
 
+export interface ResolvedInterpreter {
+  path: string;
+  environment: ResolvedEnvironment;
+}
+
 const onDidChangePythonInterpreterEvent = new EventEmitter<IInterpreterDetails>();
 export const onDidChangePythonInterpreter: Event<IInterpreterDetails> =
   onDidChangePythonInterpreterEvent.event;
@@ -40,9 +45,25 @@ export async function initializePython(disposables: Disposable[]): Promise<void>
 
 export async function resolveInterpreter(
   interpreter: string[],
-): Promise<ResolvedEnvironment | undefined> {
+): Promise<ResolvedInterpreter | undefined> {
   const api = await getPythonExtensionAPI();
-  return api.environments.resolveEnvironment(interpreter[0]);
+  for (const candidate of interpreter) {
+    if (!candidate) {
+      continue;
+    }
+    const environment = await api.environments.resolveEnvironment(candidate);
+    if (!environment) {
+      continue;
+    }
+    if (!checkVersion(environment)) {
+      continue;
+    }
+    return {
+      path: environment.executable.uri?.fsPath ?? candidate,
+      environment,
+    };
+  }
+  return undefined;
 }
 
 export async function getInterpreterDetails(resource?: Resource): Promise<IInterpreterDetails> {
