@@ -2,12 +2,12 @@
   "name": "ty-custom",
   "displayName": "ty-custom",
   "description": "A Visual Studio Code extension with support for the ty type checker and language server.",
-  "version": "2026.2.0",
+  "version": "0.1.0",
   "serverInfo": {
     "name": "ty",
     "module": "ty"
   },
-  "publisher": "astral-sh",
+  "publisher": "gglin001-vscode",
   "license": "MIT",
   "homepage": "https://github.com/gglin001/ty-vscode-custom",
   "repository": {
