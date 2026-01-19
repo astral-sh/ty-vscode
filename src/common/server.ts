@@ -30,7 +30,7 @@ import { getDocumentSelector } from "./utilities";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 import which = require("which");
 import { createTyMiddleware } from "../client";
-import { getPythonExtensionAPI } from "./python";
+import { getPythonEnvironmentsAPI } from "./python";
 
 /**
  * Check if shell mode is required for `execFile`.
@@ -182,7 +182,7 @@ export async function startServer(
   const initializationOptions = getInitializationOptions(serverId);
   logger.info(`Initialization options: ${JSON.stringify(initializationOptions, null, 4)}`);
 
-  const pythonExtension = await getPythonExtensionAPI();
+  const pythonExtension = await getPythonEnvironmentsAPI();
   const middleware = createTyMiddleware(pythonExtension);
 
   const newLSClient = await createServer(
