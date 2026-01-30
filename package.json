@@ -76,19 +76,19 @@
         "ty.configuration": {
           "default": null,
           "markdownDescription": "Inline JSON configuration for ty settings. Overrides settings in a configuration file. For example\n\n```json\n{\n  \"rules\": {\n    \"unresolved-reference\": \"ignore\"\n  }\n}\n``` ",
-          "scope": "window",
+          "scope": "resource",
           "type": "object"
         },
         "ty.configurationFile": {
           "default": null,
           "markdownDescription": "Path to a `ty.toml` configuration file.",
-          "scope": "window",
+          "scope": "resource",
           "type": "string"
         },
         "ty.disableLanguageServices": {
           "default": false,
           "markdownDescription": "Whether to disable all language services for ty like completions, hover, goto definition, etc.",
-          "scope": "window",
+          "scope": "resource",
           "type": "boolean"
         },
         "ty.diagnosticMode": {
@@ -130,19 +130,19 @@
         "ty.inlayHints.variableTypes": {
           "default": true,
           "markdownDescription": "Whether to enable inlay hints for variable types.",
-          "scope": "window",
+          "scope": "resource",
           "type": "boolean"
         },
         "ty.inlayHints.callArgumentNames": {
           "default": true,
           "markdownDescription": "Whether to enable inlay hints for call argument names.",
-          "scope": "window",
+          "scope": "resource",
           "type": "boolean"
         },
         "ty.completions.autoImport": {
           "default": true,
           "markdownDescription": "Whether to include auto-import code completions in ty.",
-          "scope": "window",
+          "scope": "resource",
           "type": "boolean"
         },
         "ty.interpreter": {
