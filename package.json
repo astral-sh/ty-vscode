@@ -223,6 +223,7 @@
   "dependencies": {
     "@vscode/python-extension": "^1.0.5",
     "fs-extra": "^11.3.0",
+    "smol-toml": "^1.6.0",
     "vscode-languageclient": "^9.0.1",
     "which": "^6.0.0"
   },

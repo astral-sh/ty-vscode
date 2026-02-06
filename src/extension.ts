@@ -15,7 +15,13 @@ import {
 } from "./common/settings";
 import { loadServerDefaults } from "./common/setup";
 import { registerLanguageStatusItem, updateStatus } from "./common/status";
-import { getProjectRoot } from "./common/utilities";
+import {
+  cleanupTempConfigs,
+  discoverTyConfigs,
+  getProjectDocumentSelector,
+  getProjectRoot,
+  writeResolvedConfigFile,
+} from "./common/utilities";
 import {
   onDidChangeConfiguration,
   onDidGrantWorkspaceTrust,
@@ -23,12 +29,13 @@ import {
 } from "./common/vscodeapi";
 import { createDebugInformationProvider } from "./common/commands";
 
-let lsClient: LanguageClient | undefined;
+const clients = new Map<string, LanguageClient>();
 let restartInProgress = false;
 let restartQueued = false;
 
 function getClient(): LanguageClient | undefined {
-  return lsClient;
+  for (const c of clients.values()) return c;
+  return undefined;
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -71,7 +78,101 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     return;
   }
 
-  const runServer = async () => {
+  // Discover ty.toml files and start one LanguageClient per project. Each
+  // server gets a scoped documentSelector so diagnostics don't overlap. When
+  // no ty.toml files exist a single default server handles everything.
+
+  const stopAll = async () => {
+    await Promise.all([...clients.values()].map((c) => stopServer(c)));
+    clients.clear();
+    await cleanupTempConfigs();
+  };
+
+  const startAll = async () => {
+    const projectRoot = await getProjectRoot();
+    const settings = await getExtensionSettings(serverId, projectRoot);
+
+    if (vscode.workspace.isTrusted) {
+      if (settings.interpreter.length === 0) {
+        updateStatus(
+          vscode.l10n.t("Please select a Python interpreter."),
+          vscode.LanguageStatusSeverity.Error,
+        );
+        logger.error(
+          "Python interpreter missing:\r\n" +
+            "[Option 1] Select Python interpreter using the ms-python.python.\r\n" +
+            `[Option 2] Set an interpreter using "${serverId}.interpreter" setting.\r\n` +
+            "Please use Python 3.8 or greater.",
+        );
+        return;
+      }
+
+      logger.info(`Using interpreter: ${settings.interpreter.join(" ")}`);
+      const resolvedEnvironment = await resolveInterpreter(settings.interpreter);
+      if (resolvedEnvironment === undefined) {
+        updateStatus(
+          vscode.l10n.t("Python interpreter not found."),
+          vscode.LanguageStatusSeverity.Error,
+        );
+        logger.error(
+          "Unable to find any Python environment for the interpreter path:",
+          settings.interpreter.join(" "),
+        );
+        return;
+      }
+
+      if (!checkVersion(resolvedEnvironment)) {
+        return;
+      }
+    }
+
+    const projects = (
+      await Promise.all(
+        (vscode.workspace.workspaceFolders ?? []).map((ws) => discoverTyConfigs(ws)),
+      )
+    ).flat();
+
+    logger.info(`Discovered ${projects.length} ty.toml project(s)`);
+
+    for (const project of projects) {
+      const configFile = await writeResolvedConfigFile(project.configPath);
+      if (!configFile) {
+        logger.warn(`Failed to resolve config: ${project.configPath}`);
+        continue;
+      }
+
+      logger.info(`Starting server for project: ${project.configPath}`);
+      const client = await startServer(
+        settings,
+        `${serverId}-${project.projectDir}`,
+        `${serverName} (${project.projectDir})`,
+        outputChannel,
+        traceOutputChannel,
+        configFile,
+        getProjectDocumentSelector(project.projectDir),
+        false,
+      );
+      if (client) {
+        clients.set(project.configPath, client);
+      }
+    }
+
+    if (clients.size === 0) {
+      logger.info("No ty.toml projects found, starting default server");
+      const client = await startServer(
+        settings,
+        serverId,
+        serverName,
+        outputChannel,
+        traceOutputChannel,
+      );
+      if (client) {
+        clients.set("default", client);
+      }
+    }
+  };
+
+  const runServers = async () => {
     if (restartInProgress) {
       if (!restartQueued) {
         // Schedule a new restart after the current restart.
@@ -84,82 +185,37 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
 
     restartInProgress = true;
-
     try {
-      if (lsClient) {
-        await stopServer(lsClient);
-      }
-
-      const projectRoot = await getProjectRoot();
-      const settings = await getExtensionSettings(serverId, projectRoot);
-
-      if (vscode.workspace.isTrusted) {
-        if (settings.interpreter.length === 0) {
-          updateStatus(
-            vscode.l10n.t("Please select a Python interpreter."),
-            vscode.LanguageStatusSeverity.Error,
-          );
-          logger.error(
-            "Python interpreter missing:\r\n" +
-              "[Option 1] Select Python interpreter using the ms-python.python.\r\n" +
-              `[Option 2] Set an interpreter using "${serverId}.interpreter" setting.\r\n` +
-              "Please use Python 3.8 or greater.",
-          );
-          return;
-        }
-
-        logger.info(`Using interpreter: ${settings.interpreter.join(" ")}`);
-        const resolvedEnvironment = await resolveInterpreter(settings.interpreter);
-        if (resolvedEnvironment === undefined) {
-          updateStatus(
-            vscode.l10n.t("Python interpreter not found."),
-            vscode.LanguageStatusSeverity.Error,
-          );
-          logger.error(
-            "Unable to find any Python environment for the interpreter path:",
-            settings.interpreter.join(" "),
-          );
-          return;
-        }
-
-        if (!checkVersion(resolvedEnvironment)) {
-          return;
-        }
-      }
-
-      lsClient = await startServer(
-        settings,
-        serverId,
-        serverName,
-        outputChannel,
-        traceOutputChannel,
-      );
+      await stopAll();
+      await startAll();
     } finally {
       // Ensure that we reset the flag in case of an error, early return, or success.
       restartInProgress = false;
       if (restartQueued) {
         restartQueued = false;
-        await runServer();
+        await runServers();
       }
     }
   };
 
+  const tyTomlWatcher = vscode.workspace.createFileSystemWatcher("**/ty.toml");
+
   context.subscriptions.push(
     onDidChangePythonInterpreter(async () => {
-      await runServer();
+      await runServers();
     }),
     onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {
       // TODO(dhruvmanila): Notify the server with `DidChangeConfigurationNotification` and let
       // the server pull in the updated configuration.
       if (checkIfConfigurationChanged(e, serverId)) {
-        await runServer();
+        await runServers();
       }
     }),
     onDidGrantWorkspaceTrust(async () => {
-      await runServer();
+      await runServers();
     }),
     registerCommand(`${serverId}.restart`, async () => {
-      await runServer();
+      await runServers();
     }),
     registerCommand(`${serverId}.showLogs`, () => {
       logger.channel.show();
@@ -168,6 +224,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       outputChannel.show();
     }),
     registerLanguageStatusItem(serverId, serverName, `${serverId}.showLogs`),
+    tyTomlWatcher,
+    tyTomlWatcher.onDidCreate(async () => {
+      logger.info("ty.toml created, restarting servers");
+      await runServers();
+    }),
+    tyTomlWatcher.onDidDelete(async () => {
+      logger.info("ty.toml deleted, restarting servers");
+      await runServers();
+    }),
   );
 
   setImmediate(async () => {
@@ -180,12 +245,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         return; // The `onDidChangePythonInterpreter` event will trigger the server start.
       }
     }
-    await runServer();
+    await runServers();
   });
 }
 
 export async function deactivate(): Promise<void> {
-  if (lsClient) {
-    await stopServer(lsClient);
-  }
+  await Promise.all([...clients.values()].map((c) => stopServer(c)));
+  clients.clear();
+  await cleanupTempConfigs();
 }
