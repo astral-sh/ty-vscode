@@ -5,6 +5,7 @@ import * as vscode from "vscode";
 import { type Disposable, l10n, LanguageStatusSeverity, type OutputChannel } from "vscode";
 import {
   DidChangeConfigurationNotification,
+  type DocumentSelector,
   type LanguageClientOptions,
   MessageType,
   type Middleware,
@@ -142,6 +143,8 @@ async function createServer(
   traceOutputChannel: OutputChannel,
   initializationOptions: InitializationOptions,
   middleware?: Middleware,
+  docSelector?: DocumentSelector,
+  isPrimary = true,
 ): Promise<LanguageClient> {
   const binaryPath = await findBinaryPath(settings);
   logger.info(`Found executable at ${binaryPath}`);
@@ -157,7 +160,7 @@ async function createServer(
 
   const clientOptions: LanguageClientOptions = {
     // Register the server for python documents
-    documentSelector: getDocumentSelector(),
+    documentSelector: docSelector ?? getDocumentSelector(),
     outputChannel,
     traceOutputChannel,
     revealOutputChannelOn: RevealOutputChannelOn.Never,
@@ -165,7 +168,20 @@ async function createServer(
     middleware,
   };
 
-  return new LanguageClient(serverId, serverName, serverOptions, clientOptions);
+  const client = new LanguageClient(serverId, serverName, serverOptions, clientOptions);
+
+  // Non-primary clients must not register server-advertised commands
+  // (e.g. ty.printDebugInformation) since the primary already owns them.
+  if (!isPrimary) {
+    const features: any[] = (client as any)._features;
+    if (Array.isArray(features)) {
+      (client as any)._features = features.filter(
+        (f: any) => f.registrationType?.method !== "workspace/executeCommand",
+      );
+    }
+  }
+
+  return client;
 }
 
 let _disposables: Disposable[] = [];
@@ -176,6 +192,9 @@ export async function startServer(
   serverName: string,
   outputChannel: OutputChannel,
   traceOutputChannel: OutputChannel,
+  configFile?: string,
+  docSelector?: DocumentSelector,
+  isPrimary = true,
 ): Promise<LanguageClient | undefined> {
   updateStatus(undefined, LanguageStatusSeverity.Information, true);
 
@@ -183,7 +202,7 @@ export async function startServer(
   logger.info(`Initialization options: ${JSON.stringify(initializationOptions, null, 4)}`);
 
   const pythonExtension = await getPythonExtensionAPI();
-  const middleware = createTyMiddleware(pythonExtension);
+  const middleware = createTyMiddleware(pythonExtension, configFile);
 
   const newLSClient = await createServer(
     settings,
@@ -193,6 +212,8 @@ export async function startServer(
     traceOutputChannel,
     initializationOptions,
     middleware,
+    docSelector,
+    isPrimary,
   );
   logger.info("Server: Start requested.");
 

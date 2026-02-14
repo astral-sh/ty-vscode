@@ -40,7 +40,10 @@ interface TyMiddleware extends Middleware {
   setServerVersion(major: number, minor: number, patch: number): void;
 }
 
-export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddleware {
+export function createTyMiddleware(
+  pythonExtension: PythonExtension,
+  configFile?: string,
+): TyMiddleware {
   const didChangeRegistrations = new Set<string>();
   let serverVersion: null | { major: number; minor: number; patch: number } = null;
 
@@ -140,6 +143,8 @@ export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddlewa
                   serverSettings.configurationFile,
                   workspaceFolder,
                 );
+              } else if (configFile && serverSettings.configurationFile == null) {
+                serverSettings.configurationFile = configFile;
               }
 
               return {
