@@ -12,12 +12,7 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noUnusedParameters": true,
-    "types": [
-      "fs-extra",
-      "node",
-      "vscode",
-      "which"
-    ]
+    "types": ["fs-extra", "node", "vscode", "which"]
   },
   "include": ["src/**/*"]
 }
