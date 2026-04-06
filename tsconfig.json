@@ -11,7 +11,8 @@
     "skipLibCheck": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "noUnusedParameters": true
+    "noUnusedParameters": true,
+    "types": ["fs-extra", "node", "vscode", "which"]
   },
   "include": ["src/**/*"]
 }
