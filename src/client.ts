@@ -4,6 +4,7 @@ import {
   CancellationToken,
   DidChangeConfigurationNotification,
 } from "vscode-languageclient";
+import * as vscode from "vscode";
 import { Uri, workspace } from "vscode";
 import type { PythonExtension } from "@vscode/python-extension";
 import {
@@ -12,6 +13,14 @@ import {
   type ExtensionSettings,
   checkSettingSupported,
 } from "./common/settings";
+import { logger } from "./common/logger";
+
+interface RunTestArgs {
+  cwd: string;
+  program: string;
+  args: string[];
+  test_target: string;
+}
 
 // Keys that are handled by the extension and should not be sent to the server
 type ExtensionOnlyKeys = keyof InitializationOptions | keyof ExtensionSettings | "trace";
@@ -71,6 +80,54 @@ export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddlewa
           didChangeRegistrations.delete(registration.id);
         }
       }
+    },
+
+    async executeCommand(command, args, next) {
+      if (command === "ty.runTest") {
+        const runTest = (args[0] as Record<string, unknown>)?.RunTest as RunTestArgs | undefined;
+        if (runTest == null) {
+          logger.error(
+            "Failed to run test: server sent incomplete arguments",
+            JSON.stringify(args),
+          );
+          vscode.window
+            .showErrorMessage("Failed to run test: missing required arguments.", "Show Logs")
+            .then((selection) => {
+              if (selection) {
+                logger.channel.show();
+              }
+            });
+          return;
+        }
+
+        const { cwd, program, args: programArgs, test_target } = runTest;
+        const task = new vscode.Task(
+          { type: "shell" },
+          vscode.TaskScope.Workspace,
+          `${test_target}`,
+          `ty`,
+          new vscode.ShellExecution(program, programArgs, { cwd }),
+        );
+        task.presentationOptions = {
+          reveal: vscode.TaskRevealKind.Always,
+          panel: vscode.TaskPanelKind.Dedicated,
+          clear: true,
+        };
+        const execution = await vscode.tasks.executeTask(task);
+        await new Promise<void>((resolve) => {
+          const listener = vscode.tasks.onDidEndTaskProcess((e) => {
+            if (e.execution === execution) {
+              listener.dispose();
+              if (e.exitCode !== 0) {
+                logger.error(`Running test failed: ${program} ${programArgs.join(" ")}`);
+              }
+              resolve();
+            }
+          });
+        });
+        return;
+      }
+      return next(command, args);
     },
 
     workspace: {
