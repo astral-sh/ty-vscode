@@ -30,7 +30,7 @@ import { getDocumentSelector } from "./utilities";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 import which = require("which");
 import { createTyMiddleware } from "../client";
-import { getPythonExtensionAPI } from "./python";
+import { checkVersion, getPythonExtensionAPI, resolveInterpreter } from "./python";
 
 /**
  * Check if shell mode is required for `execFile`.
@@ -99,21 +99,40 @@ async function findBinaryPath(settings: ExtensionSettings): Promise<string> {
 
   // Otherwise, we'll call a Python script that tries to locate a binary.
   let tyBinaryPath: string | undefined;
-  try {
-    const stdout = await executeFile(settings.interpreter[0], [FIND_BINARY_SCRIPT_PATH]);
-    tyBinaryPath = stdout.trim();
-  } catch (err) {
-    vscode.window
-      .showErrorMessage(
-        "Unexpected error while trying to find the ty binary. See the logs for more details.",
-        "Show Logs",
-      )
-      .then((selection) => {
-        if (selection) {
-          logger.channel.show();
+
+  if (settings.interpreter.length === 0) {
+    logger.warn(
+      `No interpreter discovered, skip searching for the ty binary in the Python environment.
+To select a Python interpreter, open the command palette and run 'Python: Select Interpreter'.`,
+    );
+  } else {
+    const interpreters = settings.interpreter.join(", ");
+    logger.info(`Using interpreter: ${interpreters}`);
+
+    const resolvedEnvironment = await resolveInterpreter(settings.interpreter);
+
+    if (resolvedEnvironment == null) {
+      logger.warn("Unable to find any Python environment for the interpreter paths:", interpreters);
+    } else {
+      if (checkVersion(resolvedEnvironment)) {
+        try {
+          const stdout = await executeFile(settings.interpreter[0], [FIND_BINARY_SCRIPT_PATH]);
+          tyBinaryPath = stdout.trim();
+        } catch (err) {
+          vscode.window
+            .showErrorMessage(
+              "Unexpected error while trying to find the ty binary. See the logs for more details.",
+              "Show Logs",
+            )
+            .then((selection) => {
+              if (selection) {
+                logger.channel.show();
+              }
+            });
+          logger.error(`Error while trying to find the ty binary: ${err}`);
         }
-      });
-    logger.error(`Error while trying to find the ty binary: ${err}`);
+      }
+    }
   }
 
   if (tyBinaryPath && tyBinaryPath.length > 0) {

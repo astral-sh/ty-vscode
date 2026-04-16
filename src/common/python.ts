@@ -50,7 +50,7 @@ export async function getInterpreterDetails(resource?: Resource): Promise<IInter
   const environment = await api.environments.resolveEnvironment(
     api.environments.getActiveEnvironmentPath(resource),
   );
-  if (environment?.executable.uri && checkVersion(environment)) {
+  if (environment?.executable.uri) {
     return { path: [environment?.executable.uri.fsPath], resource };
   }
   return { path: undefined, resource };
@@ -71,8 +71,8 @@ export function checkVersion(resolved: ResolvedEnvironment): boolean {
   if (version?.major === 3 && version?.minor >= 8) {
     return true;
   }
-  logger.error(`Python version ${version?.major}.${version?.minor} is not supported.`);
-  logger.error(`Selected python path: ${resolved.executable.uri?.fsPath}`);
-  logger.error("Supported versions are 3.8 and above.");
+  logger.warn(`Python version ${version?.major}.${version?.minor} is not supported.`);
+  logger.warn(`Selected python path: ${resolved.executable.uri?.fsPath}`);
+  logger.warn("Supported versions are 3.8 and above.");
   return false;
 }
