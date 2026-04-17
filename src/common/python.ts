@@ -1,4 +1,4 @@
-import { commands, type Disposable, type Event, EventEmitter } from "vscode";
+import { type Disposable, type Event, EventEmitter } from "vscode";
 import { logger } from "./logger";
 import { PythonExtension, Resource, type ResolvedEnvironment } from "@vscode/python-extension";
 
@@ -54,16 +54,6 @@ export async function getInterpreterDetails(resource?: Resource): Promise<IInter
     return { path: [environment?.executable.uri.fsPath], resource };
   }
   return { path: undefined, resource };
-}
-
-export async function getDebuggerPath(): Promise<string | undefined> {
-  const api = await getPythonExtensionAPI();
-  return api.debug.getDebuggerPackagePath();
-}
-
-export async function runPythonExtensionCommand(command: string, ...rest: any[]) {
-  await getPythonExtensionAPI();
-  return await commands.executeCommand(command, ...rest);
 }
 
 export function checkVersion(resolved: ResolvedEnvironment): boolean {
