@@ -174,10 +174,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (vscode.workspace.isTrusted) {
       const interpreter = getInterpreterFromSetting(serverId);
       if (interpreter === undefined || interpreter.length === 0) {
-        logger.info("Python extension loading");
         await initializePython(context.subscriptions);
-        logger.info("Python extension loaded");
-        return; // The `onDidChangePythonInterpreter` event will trigger the server start.
       }
     }
     await runServer();

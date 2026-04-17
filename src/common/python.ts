@@ -18,24 +18,45 @@ export async function getPythonExtensionAPI(): Promise<PythonExtension> {
   return api;
 }
 
-export async function initializePython(disposables: Disposable[]): Promise<void> {
+export async function initializePython(
+  disposables: Disposable[],
+): Promise<IInterpreterDetails | undefined> {
+  logger.info("Python extension loading");
+
+  let api;
   try {
-    const api = await getPythonExtensionAPI();
-
-    disposables.push(
-      api.environments.onDidChangeActiveEnvironmentPath((e) => {
-        onDidChangePythonInterpreterEvent.fire({
-          path: [e.path],
-          resource: e.resource,
-        });
-      }),
-    );
-
-    logger.info("Waiting for interpreter from python extension.");
-    onDidChangePythonInterpreterEvent.fire(await getInterpreterDetails());
+    api = await getPythonExtensionAPI();
   } catch (error) {
     logger.error("Error initializing python: ", error);
+    return undefined;
   }
+
+  let currentInterpreter: string | undefined = undefined;
+
+  disposables.push(
+    api.environments.onDidChangeActiveEnvironmentPath((e) => {
+      if (e.path === currentInterpreter) {
+        logger.debug(
+          "Ignoring `onDidChangeActiveEnvironmentPath` event, because the interpreter hasn't changed.",
+        );
+        return;
+      }
+
+      currentInterpreter = e.path;
+      logger.info(`active environment changed to ${e.path}`);
+
+      onDidChangePythonInterpreterEvent.fire({
+        path: [e.path],
+        resource: e.resource,
+      });
+    }),
+  );
+
+  logger.info("Waiting for interpreter from python extension.");
+  const details = await getInterpreterDetails();
+  currentInterpreter = details.path?.[0];
+  logger.info(`Python extension loaded: ${details.path}`);
+  return details;
 }
 
 export async function resolveInterpreter(
