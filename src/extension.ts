@@ -1,13 +1,13 @@
 import * as vscode from "vscode";
 import type { LanguageClient } from "vscode-languageclient/node";
 import { LazyOutputChannel, logger } from "./common/logger";
-import { initializePython, onDidChangePythonInterpreter } from "./common/python";
-import { startServer, stopServer } from "./common/server";
 import {
-  checkIfConfigurationChanged,
-  getInterpreterFromSetting,
-  getExtensionSettings,
-} from "./common/settings";
+  initializePython,
+  onDidChangePythonInterpreter,
+  OnDidChangePythonInterpreterEventArgs,
+} from "./common/python";
+import { startServer, stopServer } from "./common/server";
+import { checkIfConfigurationChanged, getExtensionSettings } from "./common/settings";
 import { loadServerDefaults } from "./common/setup";
 import { registerLanguageStatusItem } from "./common/status";
 import { getProjectRoot } from "./common/utilities";
@@ -17,6 +17,7 @@ import {
   registerCommand,
 } from "./common/vscodeapi";
 import { createDebugInformationProvider } from "./common/commands";
+import { Uri } from "vscode";
 
 let lsClient: LanguageClient | undefined;
 let restartInProgress = false;
@@ -105,9 +106,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   };
 
+  let currentWorkspaceInterpreter:
+    | { type: "uninitiailzed" }
+    | { type: "initialized"; path: string | null } = { type: "uninitiailzed" };
+
   context.subscriptions.push(
-    onDidChangePythonInterpreter(async () => {
-      await runServer();
+    onDidChangePythonInterpreter(async (e: OnDidChangePythonInterpreterEventArgs) => {
+      switch (currentWorkspaceInterpreter.type) {
+        case "uninitiailzed":
+          currentWorkspaceInterpreter = { type: "initialized", path: e.path?.[0] ?? null };
+          break;
+        case "initialized":
+          if (e.resource != Uri.file(process.cwd())) {
+            return;
+          }
+
+          logger.info(`Selected Python interpreter changed to \`${e.path}\``);
+          currentWorkspaceInterpreter = { type: "initialized", path: e.path?.[0] ?? null };
+
+          await runServer();
+      }
     }),
     onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {
       // TODO(dhruvmanila): Notify the server with `DidChangeConfigurationNotification` and let
@@ -131,15 +149,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     registerLanguageStatusItem(serverId, serverName, `${serverId}.showLogs`),
   );
 
-  const interpreter = getInterpreterFromSetting(serverId);
-  if (vscode.workspace.isTrusted) {
-    if (interpreter === undefined || interpreter.length === 0) {
-      logger.info("Python extension loading");
-      await initializePython(context.subscriptions);
-      logger.info("Python extension loaded");
-      return; // The `onDidChangePythonInterpreter` event will trigger the server start.
-    }
-  }
+  // TODO Test untrusted workspace
+  await initializePython(context.subscriptions);
+
   setImmediate(async () => {
     await runServer();
   });

@@ -1,31 +1,28 @@
 import { type Disposable, type Event, EventEmitter, extensions } from "vscode";
 import { logger } from "./logger";
-import { PythonExtension, Resource, type ResolvedEnvironment } from "@vscode/python-extension";
-import { PythonEnvironmentApi, PythonEnvironments } from "@vscode/python-environments";
+import {
+  PythonExtension,
+  ResolvedVersionInfo,
+  Resource,
+  type ResolvedEnvironment,
+} from "@vscode/python-extension";
+// import { PythonEnvironmentApi, PythonEnvironments } from "@vscode/python-environments";
 
-export interface IInterpreterDetails {
+// What we need
+// Notify when a python interpreter changed. Only restart if it's the one in the projct's root.
+// * Needs to use the Python environment extensions or Python extension, based on availability
+// * Requires setup during startup
+// A way to resolve a path to a python interpreter executable.
+//  * Requires the Python extension
+//  *
+
+export type OnDidChangePythonInterpreterEventArgs = {
   path?: string[];
   resource?: Resource;
-}
+};
 
-export class EnvironmentApi {
-  constructor(private extension: PythonExtension | PythonEnvironmentApi) {}
-}
-
-export async function getEnvironmentApi(): Promise<EnvironmentApi | undefined> {
-  const environmentApi = await getEnvironmentExtensionAPI();
-
-  if (environmentApi != null) {
-    return new EnvironmentApi(environmentApi);
-  }
-
-  const pythonExtensionApi = await getPythonExtensionAPI();
-
-  return new EnvironmentApi(pythonExtensionApi);
-}
-
-const onDidChangePythonInterpreterEvent = new EventEmitter<IInterpreterDetails>();
-export const onDidChangePythonInterpreter: Event<IInterpreterDetails> =
+const onDidChangePythonInterpreterEvent = new EventEmitter<OnDidChangePythonInterpreterEventArgs>();
+export const onDidChangePythonInterpreter: Event<OnDidChangePythonInterpreterEventArgs> =
   onDidChangePythonInterpreterEvent.event;
 
 let _pythonApi: PythonExtension | undefined;
@@ -75,7 +72,7 @@ export async function initializePython(disposables: Disposable[]): Promise<void>
       });
 
       logger.debug("Waiting for interpreter from python environments extension.");
-      onDidChangePythonInterpreterEvent.fire(await getInterpreterDetails());
+      onDidChangePythonInterpreterEvent.fire(await resolvePythonEnvironment());
       return;
     }
 
@@ -91,12 +88,15 @@ export async function initializePython(disposables: Disposable[]): Promise<void>
     );
 
     logger.info("Waiting for interpreter from python extension.");
-    onDidChangePythonInterpreterEvent.fire(await getInterpreterDetails());
+    onDidChangePythonInterpreterEvent.fire(await resolvePythonEnvironment());
   } catch (error) {
     logger.error("Error initializing python: ", error);
   }
 }
 
+/**
+ * Resolves the Python Interpreter, given a path to a Python executable or virtual environment folder,
+ */
 export async function resolveInterpreter(
   interpreter: string[],
 ): Promise<ResolvedEnvironment | undefined> {
@@ -104,24 +104,42 @@ export async function resolveInterpreter(
   return api.environments.resolveEnvironment(interpreter[0]);
 }
 
-export async function getInterpreterDetails(resource?: Resource): Promise<IInterpreterDetails> {
+export interface InterpreterDetails {
+  /// The path to the Python executable.
+  path: string | null;
+  /// The Python version
+  version: ResolvedVersionInfo | null;
+}
+
+/**
+ * Resolves the Python environment (virtual environment, system installation) for
+ * a file, folder, or workspace.
+ */
+export async function resolvePythonEnvironment(
+  resource?: Resource,
+): Promise<InterpreterDetails | null> {
   const api = await getPythonExtensionAPI();
   const environment = await api.environments.resolveEnvironment(
     api.environments.getActiveEnvironmentPath(resource),
   );
-  if (environment?.executable.uri) {
-    return { path: [environment?.executable.uri.fsPath], resource };
+
+  if (environment == null) {
+    return null;
   }
-  return { path: undefined, resource };
+
+  return {
+    path: environment?.executable.uri?.fsPath ?? null,
+    version: environment.version ?? null,
+  };
 }
 
-export function checkVersion(resolved: ResolvedEnvironment): boolean {
+export function checkInterpreterVersion(resolved: InterpreterDetails): boolean {
   const version = resolved.version;
   if (version?.major === 3 && version?.minor >= 8) {
     return true;
   }
   logger.warn(`Python version ${version?.major}.${version?.minor} is not supported.`);
-  logger.warn(`Selected python path: ${resolved.executable.uri?.fsPath}`);
+  logger.warn(`Selected python path: ${resolved.path}`);
   logger.warn("Supported versions are 3.8 and above.");
   return false;
 }

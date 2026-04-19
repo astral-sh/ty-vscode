@@ -30,7 +30,14 @@ import { getDocumentSelector } from "./utilities";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 import which = require("which");
 import { createTyMiddleware } from "../client";
-import { checkVersion, getPythonExtensionAPI, resolveInterpreter } from "./python";
+import {
+  checkInterpreterVersion,
+  resolvePythonEnvironment,
+  getPythonExtensionAPI,
+  InterpreterDetails as InterpreterDetails,
+  resolveInterpreter,
+} from "./python";
+import { resolve } from "node:path";
 
 /**
  * Check if shell mode is required for `execFile`.
@@ -100,23 +107,41 @@ async function findBinaryPath(settings: ExtensionSettings): Promise<string> {
   // Otherwise, we'll call a Python script that tries to locate a binary.
   let tyBinaryPath: string | undefined;
 
-  if (settings.interpreter.length === 0) {
+  const userSpecifiedInterpreterPath = settings.interpreter;
+  let interpreter: InterpreterDetails | null = null;
+  if (userSpecifiedInterpreterPath == null) {
+    // The user didn't explicitly configure `.interpreter`. Try to find the
+    // Python executable by using the workspace's Python environment.
+    logger.info(
+      `No interpreter configured in settings. Discover the interpreter from the workspace's Python environment: \`${settings.cwd.uri.fsPath}\``,
+    );
+    interpreter = await resolvePythonEnvironment(settings.cwd);
+  } else {
+    // The user configured a path to a python interpreter, but we need to resolve it to a
+    // a Python executable (and verify that it indeed exists).
+    logger.info(
+      `Resolving the Python executable for the configured Python \`.interpreter\`: \`${userSpecifiedInterpreterPath}\``,
+    );
+    let resolved = await resolveInterpreter([userSpecifiedInterpreterPath]);
+    interpreter = { path: resolved?.path ?? null, version: resolved?.version ?? null };
+  }
+
+  if (interpreter == null) {
     logger.warn(
       `No interpreter discovered, skip searching for the ty binary in the Python environment.
 To select a Python interpreter, open the command palette and run 'Python: Select Interpreter'.`,
     );
   } else {
-    const interpreters = settings.interpreter.join(", ");
-    logger.info(`Using interpreter: ${interpreters}`);
-
-    const resolvedEnvironment = await resolveInterpreter(settings.interpreter);
-
-    if (resolvedEnvironment == null) {
-      logger.warn("Unable to find any Python environment for the interpreter paths:", interpreters);
+    if (interpreter.path == null) {
+      logger.warn(
+        `Found a python interpreter but the executable path is \`null\`: \`${userSpecifiedInterpreterPath}\``,
+      );
     } else {
-      if (checkVersion(resolvedEnvironment)) {
+      logger.info(`Using interpreter: ${interpreter.path}`);
+
+      if (checkInterpreterVersion(interpreter)) {
         try {
-          const stdout = await executeFile(settings.interpreter[0], [FIND_BINARY_SCRIPT_PATH]);
+          const stdout = await executeFile(interpreter.path, [FIND_BINARY_SCRIPT_PATH]);
           tyBinaryPath = stdout.trim();
         } catch (err) {
           vscode.window
@@ -142,10 +167,10 @@ To select a Python interpreter, open the command palette and run 'Python: Select
   }
 
   // Second choice: the executable in the global environment.
-  const environmentPath = await which(BINARY_NAME, { nothrow: true });
-  if (environmentPath) {
-    logger.info(`Using environment executable: ${environmentPath}`);
-    return environmentPath;
+  const globalPath = await which(BINARY_NAME, { nothrow: true });
+  if (globalPath != null) {
+    logger.info(`Using environment executable: ${globalPath}`);
+    return globalPath;
   }
 
   // Third choice: bundled executable.
@@ -171,7 +196,7 @@ async function createServer(
   const serverOptions = {
     command: binaryPath,
     args: serverArgs,
-    options: { cwd: settings.cwd, env: process.env },
+    options: { cwd: settings.cwd.uri.fsPath, env: process.env },
   };
 
   const clientOptions: LanguageClientOptions = {
