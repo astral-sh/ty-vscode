@@ -5,7 +5,6 @@ import type {
   WorkspaceFolder,
 } from "vscode";
 import * as vscode from "vscode";
-import { resolvePythonEnvironment } from "./python";
 import { getConfiguration, getWorkspaceFolders } from "./vscodeapi";
 import { logger } from "./logger";
 

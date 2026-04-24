@@ -32,12 +32,10 @@ import which = require("which");
 import { createTyMiddleware } from "../client";
 import {
   checkInterpreterVersion,
-  resolvePythonEnvironment,
-  getPythonExtensionAPI,
-  InterpreterDetails as InterpreterDetails,
-  resolveInterpreter,
+  PythonEnvironmentDetails as PythonEnvironmentDetails,
+  onDidChangePythonInterpreter,
+  EnvironmentProvider,
 } from "./python";
-import { resolve } from "node:path";
 
 /**
  * Check if shell mode is required for `execFile`.
@@ -82,7 +80,10 @@ function executeFile(file: string, args: string[] = []): Promise<string> {
  *    which checks the PATH environment variable.
  * 5. If all else fails, return the bundled executable path.
  */
-async function findBinaryPath(settings: ExtensionSettings): Promise<string> {
+async function findBinaryPath(
+  settings: ExtensionSettings,
+  environmentProvider: EnvironmentProvider | null,
+): Promise<string> {
   if (!vscode.workspace.isTrusted) {
     logger.info(`Workspace is not trusted, using bundled executable: ${BUNDLED_EXECUTABLE}`);
     return BUNDLED_EXECUTABLE;
@@ -108,22 +109,25 @@ async function findBinaryPath(settings: ExtensionSettings): Promise<string> {
   let tyBinaryPath: string | undefined;
 
   const userSpecifiedInterpreterPath = settings.interpreter;
-  let interpreter: InterpreterDetails | null = null;
-  if (userSpecifiedInterpreterPath == null) {
-    // The user didn't explicitly configure `.interpreter`. Try to find the
-    // Python executable by using the workspace's Python environment.
-    logger.info(
-      `No interpreter configured in settings. Discover the interpreter from the workspace's Python environment: \`${settings.cwd.uri.fsPath}\``,
-    );
-    interpreter = await resolvePythonEnvironment(settings.cwd);
-  } else {
-    // The user configured a path to a python interpreter, but we need to resolve it to a
-    // a Python executable (and verify that it indeed exists).
-    logger.info(
-      `Resolving the Python executable for the configured Python \`.interpreter\`: \`${userSpecifiedInterpreterPath}\``,
-    );
-    let resolved = await resolveInterpreter([userSpecifiedInterpreterPath]);
-    interpreter = { path: resolved?.path ?? null, version: resolved?.version ?? null };
+  let interpreter: PythonEnvironmentDetails | null = null;
+  if (environmentProvider != null) {
+    if (userSpecifiedInterpreterPath == null) {
+      // The user didn't explicitly configure `.interpreter`. Try to find the
+      // Python executable by using the workspace's Python environment.
+      logger.info(
+        `No interpreter configured in settings. Discover the interpreter from the workspace's Python environment: \`${settings.cwd.uri}\``,
+      );
+      interpreter = (await environmentProvider.getActiveEnvironment(settings.cwd.uri)) ?? null;
+    } else {
+      // The user configured a path to a python interpreter, but we need to resolve it to a
+      // a Python executable (and verify that it indeed exists).
+      logger.info(
+        `Resolving the Python executable for the configured Python \`.interpreter\`: \`${userSpecifiedInterpreterPath}\``,
+      );
+
+      interpreter =
+        (await environmentProvider.resolveInterpreter(userSpecifiedInterpreterPath)) ?? null;
+    }
   }
 
   if (interpreter == null) {
@@ -132,16 +136,16 @@ async function findBinaryPath(settings: ExtensionSettings): Promise<string> {
 To select a Python interpreter, open the command palette and run 'Python: Select Interpreter'.`,
     );
   } else {
-    if (interpreter.path == null) {
+    if (interpreter.executable == null) {
       logger.warn(
         `Found a python interpreter but the executable path is \`null\`: \`${userSpecifiedInterpreterPath}\``,
       );
     } else {
-      logger.info(`Using interpreter: ${interpreter.path}`);
+      logger.info(`Using interpreter: ${interpreter.executable}`);
 
       if (checkInterpreterVersion(interpreter)) {
         try {
-          const stdout = await executeFile(interpreter.path, [FIND_BINARY_SCRIPT_PATH]);
+          const stdout = await executeFile(interpreter.executable, [FIND_BINARY_SCRIPT_PATH]);
           tyBinaryPath = stdout.trim();
         } catch (err) {
           vscode.window
@@ -185,9 +189,10 @@ async function createServer(
   outputChannel: OutputChannel,
   traceOutputChannel: OutputChannel,
   initializationOptions: InitializationOptions,
+  environmentProvider: EnvironmentProvider | null,
   middleware?: Middleware,
 ): Promise<LanguageClient> {
-  const binaryPath = await findBinaryPath(settings);
+  const binaryPath = await findBinaryPath(settings, environmentProvider);
   logger.info(`Found executable at ${binaryPath}`);
 
   const serverArgs: string[] = [SERVER_SUBCOMMAND];
@@ -220,14 +225,14 @@ export async function startServer(
   serverName: string,
   outputChannel: OutputChannel,
   traceOutputChannel: OutputChannel,
+  environmentProvider: EnvironmentProvider | null,
 ): Promise<LanguageClient | undefined> {
   updateStatus(undefined, LanguageStatusSeverity.Information, true);
 
   const initializationOptions = getInitializationOptions(serverId);
   logger.info(`Initialization options: ${JSON.stringify(initializationOptions, null, 4)}`);
 
-  const pythonExtension = await getPythonExtensionAPI();
-  const middleware = createTyMiddleware(pythonExtension);
+  const middleware = createTyMiddleware(environmentProvider);
 
   const newLSClient = await createServer(
     settings,
@@ -236,6 +241,7 @@ export async function startServer(
     outputChannel,
     traceOutputChannel,
     initializationOptions,
+    environmentProvider,
     middleware,
   );
   logger.info("Server: Start requested.");
@@ -299,12 +305,15 @@ export async function startServer(
       });
     }),
 
-    pythonExtension.environments.onDidChangeActiveEnvironmentPath(() => {
+    // TODO: Do we need this?
+    onDidChangePythonInterpreter((e) => {
       // If the Python interpreter changed and the server registered for `didChangeConfiguration`,
       // notifications, send the notification to the server so that it can request the updated
       // interpreter settings.
       if (middleware.isDidChangeConfigurationRegistered()) {
-        logger.debug("Python interpreter changed, sending DidChangeConfigurationNotification");
+        logger.debug(
+          `Active Python environmnent for \`${e.uri}\` changed, sending DidChangeConfigurationNotification`,
+        );
 
         newLSClient.sendNotification(DidChangeConfigurationNotification.type, undefined);
       }

@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import type { LanguageClient } from "vscode-languageclient/node";
 import { LazyOutputChannel, logger } from "./common/logger";
 import {
-  initializePython,
+  getEnvironmentProvider,
   onDidChangePythonInterpreter,
   OnDidChangePythonInterpreterEventArgs,
 } from "./common/python";
@@ -17,7 +17,6 @@ import {
   registerCommand,
 } from "./common/vscodeapi";
 import { createDebugInformationProvider } from "./common/commands";
-import { Uri } from "vscode";
 
 let lsClient: LanguageClient | undefined;
 let restartInProgress = false;
@@ -67,6 +66,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     return;
   }
 
+  const environmentProvider = await getEnvironmentProvider();
+
   const runServer = async () => {
     if (restartInProgress) {
       if (!restartQueued) {
@@ -95,6 +96,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         serverName,
         outputChannel,
         traceOutputChannel,
+        environmentProvider,
       );
     } finally {
       // Ensure that we reset the flag in case of an error, early return, or success.
@@ -108,24 +110,46 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   let currentWorkspaceInterpreter:
     | { type: "uninitiailzed" }
-    | { type: "initialized"; path: string | null } = { type: "uninitiailzed" };
+    | { type: "initialized"; path: string | null; projectRoot: vscode.WorkspaceFolder } = {
+    type: "uninitiailzed",
+  };
 
   context.subscriptions.push(
     onDidChangePythonInterpreter(async (e: OnDidChangePythonInterpreterEventArgs) => {
+      logger.info(`onDidChangePythonInterpreter: ${e.uri} -> ${e.path}`);
+
+      const projectRoot = await getProjectRoot();
+
       switch (currentWorkspaceInterpreter.type) {
-        case "uninitiailzed":
-          currentWorkspaceInterpreter = { type: "initialized", path: e.path?.[0] ?? null };
-          break;
         case "initialized":
-          if (e.resource != Uri.file(process.cwd())) {
+          logger.info(`${projectRoot.uri}`);
+
+          if (
+            currentWorkspaceInterpreter.projectRoot === projectRoot &&
+            currentWorkspaceInterpreter.path === e.path
+          ) {
+            logger.info(`Skipping because interpreter didn't change.`);
             return;
           }
+          break;
 
-          logger.info(`Selected Python interpreter changed to \`${e.path}\``);
-          currentWorkspaceInterpreter = { type: "initialized", path: e.path?.[0] ?? null };
-
-          await runServer();
+        case "uninitiailzed":
+          break;
       }
+
+      if (e.uri !== projectRoot.uri) {
+        logger.info(`Skipping change because interpreter isn't for workspace root`);
+        return;
+      }
+
+      logger.info(`Selected Python interpreter changed to \`${e.path}\``);
+      currentWorkspaceInterpreter = {
+        type: "initialized",
+        path: e.path ?? null,
+        projectRoot,
+      };
+
+      await runServer();
     }),
     onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {
       // TODO(dhruvmanila): Notify the server with `DidChangeConfigurationNotification` and let
@@ -149,8 +173,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     registerLanguageStatusItem(serverId, serverName, `${serverId}.showLogs`),
   );
 
-  // TODO Test untrusted workspace
-  await initializePython(context.subscriptions);
+  // TODO what about untrusted workspaces?
+  environmentProvider?.initialize(context.subscriptions);
 
   setImmediate(async () => {
     await runServer();
