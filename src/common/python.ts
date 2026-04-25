@@ -1,20 +1,21 @@
 import { type Disposable, type Event, EventEmitter, extensions, Uri } from "vscode";
 import { logger } from "./logger";
-import { PythonExtension as PythonExtensionApi } from "@vscode/python-extension";
-import { PythonEnvironmentApi } from "@vscode/python-environments";
+import {
+  PythonExtension as PythonExtensionApi,
+  type ResolvedEnvironment,
+} from "@vscode/python-extension";
+import { PythonEnvironmentApi, PythonEnvironment } from "@vscode/python-environments";
 
 const onDidChangePythonInterpreterEvent = new EventEmitter<OnDidChangePythonInterpreterEventArgs>();
+export type OnDidChangePythonInterpreterEventArgs = {
+  path?: string;
+  uri?: Uri;
+};
 export const onDidChangePythonInterpreter: Event<OnDidChangePythonInterpreterEventArgs> =
   onDidChangePythonInterpreterEvent.event;
 
 export async function getEnvironmentProvider(): Promise<EnvironmentProvider | null> {
-  const pythonEnvironmentExtension = await getPythonEnvironmentExtension();
-
-  if (pythonEnvironmentExtension != null) {
-    return pythonEnvironmentExtension;
-  }
-
-  return getPythonExtension();
+  return (await getPythonEnvironmentExtension()) ?? (await getPythonExtension());
 }
 
 export interface EnvironmentProvider {
@@ -30,28 +31,6 @@ export interface EnvironmentProvider {
    * a file, folder, or workspace.
    */
   getActiveEnvironment(uri?: Uri): Promise<PythonEnvironmentDetails | null>;
-}
-
-let pythonExtension: PythonExtension | null | "unavailable" = null;
-
-/**
- * Activates the Python Extension, if available.
- * @returns Cached Python Extension instance or the newly activated instance.
- */
-async function getPythonExtension(): Promise<PythonExtension | null> {
-  if (pythonExtension === "unavailable") {
-    return null;
-  }
-
-  const activated = pythonExtension ?? (await PythonExtension.tryActivate());
-
-  if (activated == null) {
-    pythonExtension = "unavailable";
-    return null;
-  }
-
-  pythonExtension = activated;
-  return activated;
 }
 
 /**
@@ -98,31 +77,10 @@ class PythonExtension implements EnvironmentProvider {
       return null;
     }
 
-    const version =
-      environment.version == null
-        ? null
-        : {
-            major: environment.version.major,
-            minor: environment.version.minor,
-            patch: environment.version.micro,
-          };
-
-    return {
-      executable: environment.executable.uri?.fsPath ?? null,
-      sysPrefix: environment.executable.sysPrefix,
-      environment:
-        environment.environment == null
-          ? null
-          : {
-              environmentPath: environment.environment.folderUri,
-              displayName: environment.environment.name ?? null,
-              type: environment.environment.type,
-            },
-      version,
-    };
+    return PythonExtension.toEnvironmentDetails(environment);
   }
 
-  async getActiveEnvironment(uri: Uri): Promise<PythonEnvironmentDetails | null> {
+  async getActiveEnvironment(uri?: Uri): Promise<PythonEnvironmentDetails | null> {
     const environment = await this.#extension.environments.resolveEnvironment(
       this.#extension.environments.getActiveEnvironmentPath(uri),
     );
@@ -131,15 +89,24 @@ class PythonExtension implements EnvironmentProvider {
       return null;
     }
 
-    const version =
-      environment.version != null
-        ? {
-            major: environment.version.major,
-            minor: environment.version.minor,
-            patch: environment.version.micro,
-          }
-        : null;
+    return PythonExtension.toEnvironmentDetails(environment);
+  }
 
+  private static toVersion(
+    version: ResolvedEnvironment["version"],
+  ): PythonEnvironmentDetails["version"] {
+    if (version == null) {
+      return null;
+    }
+
+    return {
+      major: version.major,
+      minor: version.minor,
+      patch: version.micro,
+    };
+  }
+
+  private static toEnvironmentDetails(environment: ResolvedEnvironment): PythonEnvironmentDetails {
     return {
       executable: environment.executable.uri?.fsPath ?? null,
       sysPrefix: environment.executable.sysPrefix,
@@ -151,27 +118,19 @@ class PythonExtension implements EnvironmentProvider {
               displayName: environment.environment.name ?? null,
               type: environment.environment.type,
             },
-      version,
+      version: PythonExtension.toVersion(environment.version),
     };
   }
 }
 
-let pythonEnvironmentExtension: PythonEnvironmentExtension | null | "unavailable" = null;
+const pythonExtension = cached(PythonExtension.tryActivate);
 
-async function getPythonEnvironmentExtension(): Promise<PythonEnvironmentExtension | null> {
-  if (pythonEnvironmentExtension === "unavailable") {
-    return null;
-  }
-
-  const activated = pythonEnvironmentExtension ?? (await PythonEnvironmentExtension.tryActivate());
-
-  if (activated == null) {
-    pythonEnvironmentExtension = "unavailable";
-    return null;
-  }
-
-  pythonEnvironmentExtension = activated;
-  return activated;
+/**
+ * Activates the Python Extension, if available.
+ * @returns Cached Python Extension instance or the newly activated instance.
+ */
+async function getPythonExtension(): Promise<PythonExtension | null> {
+  return pythonExtension.get();
 }
 
 class PythonEnvironmentExtension implements EnvironmentProvider {
@@ -189,7 +148,6 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
       return null;
     }
 
-    const api = extension.exports as PythonEnvironmentApi;
     if (!extension.isActive) {
       try {
         logger.info("Activating the Python Environment extension");
@@ -203,7 +161,7 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
       }
     }
 
-    return new PythonEnvironmentExtension(api);
+    return new PythonEnvironmentExtension(extension.exports as PythonEnvironmentApi);
   }
 
   async initialize(disposables: Disposable[]): Promise<void> {
@@ -242,12 +200,14 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
       return null;
     }
 
-    return {
-      executable: environment.execInfo.run.executable,
-      sysPrefix: environment.sysPrefix,
-      environment: null,
-      version: parsePythonVersion(environment.version),
-    };
+    if (environment.error != null) {
+      logger.warn(
+        `Ignoring environment ${environment.environmentPath} with error: ${environment.error}`,
+      );
+      return null;
+    }
+
+    return PythonEnvironmentExtension.toEnvironmentDetails(environment);
   }
 
   async getActiveEnvironment(uri?: Uri): Promise<PythonEnvironmentDetails | null> {
@@ -266,22 +226,52 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
       return null;
     }
 
+    return PythonEnvironmentExtension.toEnvironmentDetails(environment);
+  }
+
+  private static toEnvironmentDetails(environment: PythonEnvironment): PythonEnvironmentDetails {
     return {
       executable: environment.execInfo.run.executable,
       sysPrefix: environment.sysPrefix,
-      environment: null,
-      version: parsePythonVersion(environment.version),
+      environment: {
+        environmentPath: environment.environmentPath,
+        displayName: environment.displayName,
+        type: null,
+      },
+      version: PythonEnvironmentExtension.parseVersion(environment.version),
+    };
+  }
+
+  private static parseVersion(version: string): PythonEnvironmentDetails["version"] {
+    // Same regex as
+    // <https://github.com/microsoft/vscode-python-environments/blob/1db132bb13f2691639650a7d701b3f2ea5f57a23/src/managers/common/utils.ts#L24>
+    const match = /^(\d+)\.(\d+)(?:\.(\d+))?/.exec(version);
+
+    if (match == null) {
+      return null;
+    }
+
+    if (match.length !== 4) {
+      throw new Error(`Unexpected Python version match length: ${match.length}`);
+    }
+
+    const major = parseInt(match[1]);
+    const minor = parseInt(match[2]);
+    const patch = match[3] == null ? null : parseInt(match[3]);
+
+    return {
+      major,
+      minor,
+      patch,
     };
   }
 }
 
-// TODO: As it is designed now, it's either one API or the other but never both
-// Can we go back to having an interface or a single variable that caches which API to
+const pythonEnvironmentExtension = cached(PythonEnvironmentExtension.tryActivate);
 
-export type OnDidChangePythonInterpreterEventArgs = {
-  path?: string;
-  uri?: Uri;
-};
+async function getPythonEnvironmentExtension(): Promise<PythonEnvironmentExtension | null> {
+  return pythonEnvironmentExtension.get();
+}
 
 export interface PythonEnvironmentDetails {
   /// The path to the Python executable.
@@ -291,61 +281,60 @@ export interface PythonEnvironmentDetails {
 
   /**
    * If the environment is a virtual environment, its display name
-   * and path.
-   * Always `None` when using the Python Extensions backend.
-   * @deprecated
+   * and path. `null` if this is a global Python installation.
    */
-  environment: {
+  environment?: {
     displayName: string | null;
     environmentPath: Uri;
-    type: string;
+    type: string | null;
   } | null;
 
   /// The Python version
-  version: { major: number; minor: number; patch: number } | null;
+  version: { major: number; minor: number; patch: number | null } | null;
 }
 
 export function checkInterpreterVersion(resolved: PythonEnvironmentDetails): boolean | null {
   const version = resolved.version;
 
-  if (resolved.version == null) {
+  if (version == null) {
     return null;
   }
 
-  if (resolved.version.major === 3 && resolved.version.minor >= 8) {
+  if (version.major === 3 && version.minor >= 8) {
     return true;
   }
 
-  logger.warn(`Python version ${version} is not supported.`);
+  logger.warn(`Python version ${version.major}.${version.minor} is not supported.`);
   logger.warn(`Selected python path: ${resolved.executable}`);
   logger.warn("Supported versions are 3.8 and above.");
   return false;
 }
 
-function parsePythonVersion(
-  version: string,
-): { major: number; minor: number; patch: number } | null {
-  if (version == null) {
-    return null;
-  }
-
-  const parts = version.split(".");
-
-  if (parts.length < 3) {
-    return null;
-  }
-
-  const major = parseInt(parts[0]);
-  const minor = parseInt(parts[1]);
-  const patch = parseInt(parts[2]);
-
-  if (isNaN(major) || isNaN(minor) || isNaN(patch)) {
-    return null;
-  }
+const unavailable = Symbol("unavailable");
+/**
+ * Creates a value exactly once and then caches it.
+ *
+ * The `factory` is called exactly once. It can return `null`
+ * to signal that creating the value failed (e.g. because it isn't available).
+ */
+function cached<T>(factory: () => Promise<T | null>): { get(): Promise<T | null> } {
+  let cache: T | null | typeof unavailable = null;
 
   return {
-    major,
-    minor,
-    patch,
+    async get() {
+      if (cache === unavailable) {
+        return null;
+      }
+
+      const cached = cache ?? (await factory());
+
+      if (cached == null) {
+        cache = unavailable;
+        return null;
+      }
+
+      cache = cached;
+      return cached;
+    },
   };
 }

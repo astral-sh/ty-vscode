@@ -11,7 +11,7 @@ import {
   type ExtensionSettings,
   checkSettingSupported,
 } from "./common/settings";
-import { EnvironmentProvider, getEnvironmentProvider } from "./common/python";
+import { EnvironmentProvider } from "./common/python";
 
 // Keys that are handled by the extension and should not be sent to the server
 type ExtensionOnlyKeys = keyof InitializationOptions | keyof ExtensionSettings | "trace";
@@ -105,8 +105,7 @@ export function createTyMiddleware(environmentProvider: EnvironmentProvider | nu
                           : {
                               major: resolved.version.major,
                               minor: resolved.version.minor,
-                              patch: resolved.version.patch,
-                              sysVersion: `${resolved.version.major}.${resolved.version.minor}.${resolved.version.patch}`,
+                              patch: resolved.version.patch ?? undefined,
                             },
                       environment:
                         resolved.environment == null
@@ -114,7 +113,7 @@ export function createTyMiddleware(environmentProvider: EnvironmentProvider | nu
                           : {
                               folderUri: resolved.environment.environmentPath.toString(),
                               name: resolved.environment.displayName ?? undefined,
-                              type: resolved.environment.type,
+                              type: resolved.environment.type ?? undefined,
                             },
                       executable: {
                         uri:
@@ -164,7 +163,7 @@ export function createTyMiddleware(environmentProvider: EnvironmentProvider | nu
 }
 
 type ServerActiveEnvironmentSchema = {
-  executable: { uri: string; sysPrefix: string };
-  environment?: { folderUri: string; type: string; name: string | undefined };
-  version?: { major: number; minor: number; patch: number; sysVersion: string };
+  executable: { uri?: string; sysPrefix: string };
+  environment?: { folderUri: string; type?: string; name?: string };
+  version?: { major: number; minor: number; patch?: number; sysVersion?: string };
 };

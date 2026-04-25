@@ -146,10 +146,13 @@
           "type": "boolean"
         },
         "ty.interpreter": {
-          "default": null,
+          "default": [],
           "markdownDescription": "Path to a Python interpreter to use to find the `ty` executable.",
           "scope": "window",
-          "type": "string"
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "ty.logLevel": {
           "default": null,

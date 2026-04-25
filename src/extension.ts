@@ -108,34 +108,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   };
 
-  let currentWorkspaceInterpreter:
-    | { type: "uninitiailzed" }
-    | { type: "initialized"; path: string | null; projectRoot: vscode.WorkspaceFolder } = {
-    type: "uninitiailzed",
-  };
-
   context.subscriptions.push(
     onDidChangePythonInterpreter(async (e: OnDidChangePythonInterpreterEventArgs) => {
       logger.info(`onDidChangePythonInterpreter: ${e.uri} -> ${e.path}`);
 
       const projectRoot = await getProjectRoot();
-
-      switch (currentWorkspaceInterpreter.type) {
-        case "initialized":
-          logger.info(`${projectRoot.uri}`);
-
-          if (
-            currentWorkspaceInterpreter.projectRoot === projectRoot &&
-            currentWorkspaceInterpreter.path === e.path
-          ) {
-            logger.info(`Skipping because interpreter didn't change.`);
-            return;
-          }
-          break;
-
-        case "uninitiailzed":
-          break;
-      }
 
       if (e.uri !== projectRoot.uri) {
         logger.info(`Skipping change because interpreter isn't for workspace root`);
@@ -143,14 +120,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
 
       logger.info(`Selected Python interpreter changed to \`${e.path}\``);
-      currentWorkspaceInterpreter = {
-        type: "initialized",
-        path: e.path ?? null,
-        projectRoot,
-      };
 
       await runServer();
     }),
+
     onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {
       // TODO(dhruvmanila): Notify the server with `DidChangeConfigurationNotification` and let
       // the server pull in the updated configuration.
