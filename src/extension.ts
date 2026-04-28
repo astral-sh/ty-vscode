@@ -1,12 +1,7 @@
 import * as vscode from "vscode";
 import type { LanguageClient } from "vscode-languageclient/node";
 import { LazyOutputChannel, logger } from "./common/logger";
-import {
-  checkVersion,
-  initializePython,
-  onDidChangePythonInterpreter,
-  resolveInterpreter,
-} from "./common/python";
+import { initializePython, onDidChangePythonInterpreter } from "./common/python";
 import { startServer, stopServer } from "./common/server";
 import {
   checkIfConfigurationChanged,
@@ -14,7 +9,7 @@ import {
   getExtensionSettings,
 } from "./common/settings";
 import { loadServerDefaults } from "./common/setup";
-import { registerLanguageStatusItem, updateStatus } from "./common/status";
+import { registerLanguageStatusItem } from "./common/status";
 import { getProjectRoot } from "./common/utilities";
 import {
   onDidChangeConfiguration,
@@ -92,40 +87,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
       const projectRoot = await getProjectRoot();
       const settings = await getExtensionSettings(serverId, projectRoot);
-
-      if (vscode.workspace.isTrusted) {
-        if (settings.interpreter.length === 0) {
-          updateStatus(
-            vscode.l10n.t("Please select a Python interpreter."),
-            vscode.LanguageStatusSeverity.Error,
-          );
-          logger.error(
-            "Python interpreter missing:\r\n" +
-              "[Option 1] Select Python interpreter using the ms-python.python.\r\n" +
-              `[Option 2] Set an interpreter using "${serverId}.interpreter" setting.\r\n` +
-              "Please use Python 3.8 or greater.",
-          );
-          return;
-        }
-
-        logger.info(`Using interpreter: ${settings.interpreter.join(" ")}`);
-        const resolvedEnvironment = await resolveInterpreter(settings.interpreter);
-        if (resolvedEnvironment === undefined) {
-          updateStatus(
-            vscode.l10n.t("Python interpreter not found."),
-            vscode.LanguageStatusSeverity.Error,
-          );
-          logger.error(
-            "Unable to find any Python environment for the interpreter path:",
-            settings.interpreter.join(" "),
-          );
-          return;
-        }
-
-        if (!checkVersion(resolvedEnvironment)) {
-          return;
-        }
-      }
 
       lsClient = await startServer(
         settings,
