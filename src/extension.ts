@@ -147,7 +147,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   // TODO what about untrusted workspaces?
-  environmentProvider?.initialize(context.subscriptions);
+  await environmentProvider?.initialize(context.subscriptions);
 
   setImmediate(async () => {
     await runServer();

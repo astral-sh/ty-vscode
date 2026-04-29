@@ -111,14 +111,7 @@ async function findBinaryPath(
   const userSpecifiedInterpreterPath = settings.interpreter;
   let interpreter: PythonEnvironmentDetails | null = null;
   if (environmentProvider != null) {
-    if (userSpecifiedInterpreterPath == null) {
-      // The user didn't explicitly configure `.interpreter`. Try to find the
-      // Python executable by using the workspace's Python environment.
-      logger.info(
-        `No interpreter configured in settings. Discover the interpreter from the workspace's Python environment: \`${settings.cwd.uri}\``,
-      );
-      interpreter = (await environmentProvider.getActiveEnvironment(settings.cwd.uri)) ?? null;
-    } else {
+    if (userSpecifiedInterpreterPath != null) {
       // The user configured a path to a python interpreter, but we need to resolve it to a
       // a Python executable (and verify that it indeed exists).
       logger.info(
@@ -127,15 +120,33 @@ async function findBinaryPath(
 
       interpreter =
         (await environmentProvider.resolveInterpreter(userSpecifiedInterpreterPath)) ?? null;
+
+      if (interpreter == null) {
+        logger.warn(
+          `\`${userSpecifiedInterpreterPath}\` (from \`ty.interpreter\`) doesn't point to a valid interpreter. Falling back to discovering the active Python environment.`,
+        );
+      }
+    }
+
+    if (interpreter == null) {
+      // The user didn't explicitly configure `.interpreter`. Try to find the
+      // Python executable by using the workspace's Python environment.
+      logger.info(
+        `Discover the interpreter from the workspace's Python environment: \`${settings.cwd.uri}\``,
+      );
+
+      interpreter = (await environmentProvider.getActiveEnvironment(settings.cwd.uri)) ?? null;
+
+      if (interpreter == null) {
+        logger.warn(
+          `No interpreter discovered, skip searching for the ty binary in the Python environment.
+          To select a Python interpreter, open the command palette and run 'Python: Select Interpreter'.`,
+        );
+      }
     }
   }
 
-  if (interpreter == null) {
-    logger.warn(
-      `No interpreter discovered, skip searching for the ty binary in the Python environment.
-To select a Python interpreter, open the command palette and run 'Python: Select Interpreter'.`,
-    );
-  } else {
+  if (interpreter != null) {
     if (interpreter.executable == null) {
       logger.warn(
         `Found a python interpreter but the executable path is \`null\`: \`${userSpecifiedInterpreterPath}\``,

@@ -171,19 +171,42 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
     // It ensures that the Python Environment extension doesn't wire an extra
     // `didChangeEnvironment` event for the workspace root (which results in a server restart...)
     // Very annoying this is.
-    await this.getActiveEnvironment(undefined);
+    let initial = await this.getActiveEnvironment(undefined);
+
+    let lastEnvironmentKey: string | undefined = undefined;
 
     disposables.push(
       this.#extension.onDidChangeEnvironment((e) => {
-        // The Python environment extension emits multiple events for the same resource
+        // If this is the first event, only emit it if the environment is different from the one we just resolved
+        // I have no idea why the Python Environment extension emits this event. We haven't even regsitered
+        // our handler at that point.
+        if (
+          initial != null &&
+          e.uri == null &&
+          initial.executable === e.new?.execInfo.run.executable
+        ) {
+          initial = null;
+          return;
+        }
+
+        initial = null;
+
+        // The Python environment extension emits multiple no-op events
         // during startup. This alsmost certainly a bug, let's dedupe here.
         if (e.old?.execInfo.run.executable === e.new?.execInfo.run.executable) {
           return;
         }
 
-        // TODO: Not entirely sufficient. Python Environment extension still emits additional events.
-        // it's not even sufficient to register the event handler after calling `getActivePythonEnvironment`.
-        // It still emits one extra event where
+        // The Python environment extension also emits multiple events after selecting an interpreter,
+        // for no appearant reason. Again, we duplicate them here to avoid unnecessary server restarts.
+        // For this, we remember what the last event was and only fire if the new event has something new to tell
+        const environmentKey = `${e.uri?.toString() ?? ""}:${e.new?.execInfo.run.executable}`;
+
+        if (environmentKey === lastEnvironmentKey) {
+          return;
+        }
+
+        lastEnvironmentKey = environmentKey;
 
         onDidChangePythonInterpreterEvent.fire({
           path: e.new?.execInfo.run.executable,
@@ -213,8 +236,6 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
   async getActiveEnvironment(uri?: Uri): Promise<PythonEnvironmentDetails | null> {
     const environment = await this.#extension.getEnvironment(uri);
 
-    logger.info(`Resolved environment ${environment}`);
-
     if (environment == null) {
       return null;
     }
@@ -226,6 +247,8 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
       return null;
     }
 
+    logger.info(`Resolved environment ${environment.environmentPath}`);
+
     return PythonEnvironmentExtension.toEnvironmentDetails(environment);
   }
 
@@ -233,11 +256,7 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
     return {
       executable: environment.execInfo.run.executable,
       sysPrefix: environment.sysPrefix,
-      environment: {
-        environmentPath: environment.environmentPath,
-        displayName: environment.displayName,
-        type: null,
-      },
+      environment: null,
       version: PythonEnvironmentExtension.parseVersion(environment.version),
     };
   }
@@ -282,6 +301,8 @@ export interface PythonEnvironmentDetails {
   /**
    * If the environment is a virtual environment, its display name
    * and path. `null` if this is a global Python installation.
+   *
+   * Always `null` when using the Python Environment extension.
    */
   environment?: {
     displayName: string | null;
