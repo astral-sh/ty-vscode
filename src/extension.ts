@@ -114,7 +114,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
       const projectRoot = await getProjectRoot();
 
-      if (e.uri !== projectRoot.uri) {
+      if (e.uri != null && e.uri.toString() !== projectRoot.uri.toString()) {
         logger.info(`Skipping change because interpreter isn't for workspace root`);
         return;
       }

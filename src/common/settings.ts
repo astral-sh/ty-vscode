@@ -75,7 +75,18 @@ export function getInitializationOptions(namespace: string): InitializationOptio
 
 function getInterpreterFromSetting(namespace: string, scope?: ConfigurationScope): string | null {
   const config = getConfiguration(namespace, scope);
-  return config.get<string | null>("interpreter") ?? null;
+  const interpreter = config.get<unknown>("interpreter") ?? null;
+
+  if (typeof interpreter === "string" || interpreter == null) {
+    return interpreter;
+  }
+
+  if (Array.isArray(interpreter)) {
+    const [first] = interpreter;
+    return typeof first === "string" ? first : null;
+  }
+
+  return null;
 }
 
 export async function getExtensionSettings(
