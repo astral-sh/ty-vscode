@@ -21,7 +21,7 @@ import {
   onDidGrantWorkspaceTrust,
   registerCommand,
 } from "./common/vscodeapi";
-import { createDebugInformationProvider } from "./common/commands";
+import { createDebugInformationProvider, createRunTestProvider } from "./common/commands";
 
 let lsClient: LanguageClient | undefined;
 let restartInProgress = false;
@@ -58,6 +58,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       `${serverId}.debugInformation`,
       createDebugInformationProvider(getClient, serverId, context),
     ),
+    registerCommand(`${serverId}.runTest`, createRunTestProvider()),
   );
 
   if (restartInProgress) {
