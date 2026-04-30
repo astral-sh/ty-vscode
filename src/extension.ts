@@ -3,10 +3,10 @@ import type { LanguageClient } from "vscode-languageclient/node";
 import { LazyOutputChannel, logger } from "./common/logger";
 import {
   getEnvironmentProvider,
-  onDidChangePythonInterpreter,
-  OnDidChangePythonInterpreterEventArgs,
+  onDidChangeActivePythonEnvironment,
+  OnDidChangeActivePythonEnvironmentEventArgs,
 } from "./common/python";
-import { startServer, stopServer } from "./common/server";
+import { findBinaryPath, type ServerState, startServer, stopServer } from "./common/server";
 import { checkIfConfigurationChanged, getExtensionSettings } from "./common/settings";
 import { loadServerDefaults } from "./common/setup";
 import { registerLanguageStatusItem } from "./common/status";
@@ -18,12 +18,12 @@ import {
 } from "./common/vscodeapi";
 import { createDebugInformationProvider } from "./common/commands";
 
-let lsClient: LanguageClient | undefined;
-let restartInProgress = false;
+let serverState: ServerState | null = null;
 let restartQueued = false;
+let restartPromise: Promise<void> | null = null;
 
 function getClient(): LanguageClient | undefined {
-  return lsClient;
+  return serverState?.client;
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -55,21 +55,29 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     ),
   );
 
-  if (restartInProgress) {
-    if (!restartQueued) {
-      // Schedule a new restart after the current restart.
-      logger.info(
-        `${serverName} restart requested while another restart is in progress; queuing one more restart.`,
-      );
-      restartQueued = true;
-    }
-    return;
-  }
-
   const environmentProvider = await getEnvironmentProvider();
 
   const runServer = async () => {
-    if (restartInProgress) {
+    if (serverState != null) {
+      await stopServer(serverState.client);
+      serverState = null;
+    }
+
+    const projectRoot = await getProjectRoot();
+    const settings = await getExtensionSettings(serverId, projectRoot);
+
+    serverState = await startServer(
+      settings,
+      serverId,
+      serverName,
+      outputChannel,
+      traceOutputChannel,
+      environmentProvider,
+    );
+  };
+
+  const requestRestart = async () => {
+    if (restartPromise != null) {
       if (!restartQueued) {
         // Schedule a new restart after the current restart.
         logger.info(
@@ -77,39 +85,79 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         );
         restartQueued = true;
       }
+      await restartPromise;
       return;
     }
 
-    restartInProgress = true;
-
-    try {
-      if (lsClient) {
-        await stopServer(lsClient);
+    restartQueued = false;
+    restartPromise = (async () => {
+      try {
+        do {
+          restartQueued = false;
+          await runServer();
+        } while (restartQueued);
+      } finally {
+        // Ensure that we reset the flag in case of an error, early return, or success.
+        restartPromise = null;
       }
+    })();
 
-      const projectRoot = await getProjectRoot();
-      const settings = await getExtensionSettings(serverId, projectRoot);
+    await restartPromise;
+  };
 
-      lsClient = await startServer(
-        settings,
-        serverId,
-        serverName,
-        outputChannel,
-        traceOutputChannel,
-        environmentProvider,
+  const maybeRestartForPythonInterpreterChange = async (
+    projectRoot: vscode.WorkspaceFolder,
+    interpreter: string | undefined,
+  ) => {
+    if (restartPromise != null) {
+      logger.debug(
+        `${serverName} restart is already in progress; waiting before checking the Python interpreter change.`,
       );
-    } finally {
-      // Ensure that we reset the flag in case of an error, early return, or success.
-      restartInProgress = false;
-      if (restartQueued) {
-        restartQueued = false;
-        await runServer();
+      await restartPromise;
+    }
+
+    if (serverState == null) {
+      logger.info(
+        `Unable to determine the current ${serverName} executable; restarting ${serverName}.`,
+      );
+      await requestRestart();
+      return;
+    }
+
+    if (serverState.binaryResolution.dependsOnActiveInterpreter) {
+      const settings = await getExtensionSettings(serverId, projectRoot);
+      const activeEnvironment =
+        (await environmentProvider?.getActiveEnvironment(projectRoot.uri)) ?? null;
+      const nextBinaryResolution = await findBinaryPath(
+        settings,
+        environmentProvider,
+        activeEnvironment,
+      );
+
+      if (nextBinaryResolution.path !== serverState.binaryResolution.path) {
+        logger.info(
+          `Resolved ty executable changed from ${serverState.binaryResolution.path} to ${nextBinaryResolution.path}; restarting ${serverName}.`,
+        );
+        await requestRestart();
+        return;
       }
     }
+
+    if (interpreter != null && interpreter === serverState.activeEnvironmentPythonExecutable) {
+      logger.info(
+        `Skipping ${serverName} restart because the active Python environment is unchanged: ${interpreter}.`,
+      );
+      return;
+    }
+
+    // Once ty supports workspace/didChangeConfiguration, this can be replaced with a configuration notification.
+    logger.info(`Restarting ${serverName} because the active Python environment changed.`);
+    serverState.activeEnvironmentPythonExecutable = interpreter ?? null;
+    await requestRestart();
   };
 
   context.subscriptions.push(
-    onDidChangePythonInterpreter(async (e: OnDidChangePythonInterpreterEventArgs) => {
+    onDidChangeActivePythonEnvironment(async (e: OnDidChangeActivePythonEnvironmentEventArgs) => {
       const interpreter = e.path ?? "<unknown>";
 
       const projectRoot = await getProjectRoot();
@@ -121,25 +169,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         return;
       }
 
-      logger.info(
-        `Selected Python interpreter for workspace changed to \`${interpreter}\`; restarting ${serverName}.`,
-      );
+      logger.info(`Selected Python interpreter for workspace changed to \`${interpreter}\`.`);
 
-      await runServer();
+      await maybeRestartForPythonInterpreterChange(projectRoot, e.path);
     }),
 
     onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {
       // TODO(dhruvmanila): Notify the server with `DidChangeConfigurationNotification` and let
       // the server pull in the updated configuration.
       if (checkIfConfigurationChanged(e, serverId)) {
-        await runServer();
+        await requestRestart();
       }
     }),
     onDidGrantWorkspaceTrust(async () => {
-      await runServer();
+      await requestRestart();
     }),
     registerCommand(`${serverId}.restart`, async () => {
-      await runServer();
+      await requestRestart();
     }),
     registerCommand(`${serverId}.showLogs`, () => {
       logger.channel.show();
@@ -154,12 +200,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   await environmentProvider?.initialize(context.subscriptions);
 
   setImmediate(async () => {
-    await runServer();
+    if (serverState == null && restartPromise == null) {
+      await requestRestart();
+    }
   });
 }
 
 export async function deactivate(): Promise<void> {
-  if (lsClient) {
-    await stopServer(lsClient);
+  if (serverState != null) {
+    await stopServer(serverState.client);
+    serverState = null;
   }
 }

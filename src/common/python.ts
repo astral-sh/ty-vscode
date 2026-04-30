@@ -6,13 +6,14 @@ import {
 } from "@vscode/python-extension";
 import { PythonEnvironmentApi, PythonEnvironment } from "@vscode/python-environments";
 
-const onDidChangePythonInterpreterEvent = new EventEmitter<OnDidChangePythonInterpreterEventArgs>();
-export type OnDidChangePythonInterpreterEventArgs = {
+const onDidChangeActivePythonEnvironmentEvent =
+  new EventEmitter<OnDidChangeActivePythonEnvironmentEventArgs>();
+export type OnDidChangeActivePythonEnvironmentEventArgs = {
   path?: string;
   uri?: Uri;
 };
-export const onDidChangePythonInterpreter: Event<OnDidChangePythonInterpreterEventArgs> =
-  onDidChangePythonInterpreterEvent.event;
+export const onDidChangeActivePythonEnvironment: Event<OnDidChangeActivePythonEnvironmentEventArgs> =
+  onDidChangeActivePythonEnvironmentEvent.event;
 
 export async function getEnvironmentProvider(): Promise<EnvironmentProvider | null> {
   return (await getPythonEnvironmentExtension()) ?? (await getPythonExtension());
@@ -62,7 +63,7 @@ class PythonExtension implements EnvironmentProvider {
     logger.info("Using Python extension for Python environment detection");
     disposables.push(
       this.#extension.environments.onDidChangeActiveEnvironmentPath((e) => {
-        onDidChangePythonInterpreterEvent.fire({
+        onDidChangeActivePythonEnvironmentEvent.fire({
           path: e.path,
           uri: e.resource instanceof Uri ? e.resource : e.resource?.uri,
         });
@@ -178,12 +179,22 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
 
     disposables.push(
       this.#extension.onDidChangeEnvironment((e) => {
-        logger.info(`onDidChangePythonInterpreter: ${JSON.stringify(e, null, 2)}`);
+        logger.debug(`Python Environments didChangeEnvironment: ${JSON.stringify(e, null, 2)}`);
+
+        const newExecutable = e.new?.execInfo.run.executable;
+        const oldExecutable = e.old?.execInfo.run.executable;
+
+        if (oldExecutable != null && oldExecutable === newExecutable) {
+          logger.debug(
+            `Ignoring Python Environments change event because the executable is unchanged: ${newExecutable}`,
+          );
+          return;
+        }
 
         // We only care about the executable path, but the Python environment extension
         // may also trigger the event if other properties of the environment changed (e.g. environment id).
         // That's why we dedupe the information here to avoid unnecessary server restarts.
-        const environmentKey = `${e.uri?.toString() ?? ""}:${e.new?.execInfo.run.executable}`;
+        const environmentKey = `${e.uri?.toString() ?? ""}:${newExecutable}`;
 
         if (environmentKey === lastEnvironmentKey) {
           logger.info(`Ignoring Python Environments change event: ${environmentKey}`);
@@ -195,13 +206,9 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
         // If this is the first event, only emit it if the environment is different from the one we just resolved
         // The Python Environments extension can emit an initial change event for
         // the same environment that we resolved before registering this handler.
-        if (
-          initial != null &&
-          e.uri == null &&
-          initial.executable === e.new?.execInfo.run.executable
-        ) {
+        if (initial != null && e.uri == null && initial.executable === newExecutable) {
           logger.info(
-            `Ignoring initial Python environment change event for the workspace root: ${e.new?.execInfo.run.executable}`,
+            `Ignoring initial Python environment change event for the workspace root: ${newExecutable}`,
           );
           initial = null;
           return;
@@ -209,8 +216,8 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
 
         initial = null;
 
-        onDidChangePythonInterpreterEvent.fire({
-          path: e.new?.execInfo.run.executable,
+        onDidChangeActivePythonEnvironmentEvent.fire({
+          path: newExecutable,
           uri: e.uri,
         });
       }),
@@ -248,7 +255,7 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
       return null;
     }
 
-    logger.info(`Resolved Python environment: ${environment.environmentPath}`);
+    logger.debug(`Resolved Python environment: ${environment.environmentPath}`);
 
     return PythonEnvironmentExtension.toEnvironmentDetails(environment);
   }

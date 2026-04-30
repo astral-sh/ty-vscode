@@ -33,7 +33,7 @@ import { createTyMiddleware } from "../client";
 import {
   checkInterpreterVersion,
   PythonEnvironmentDetails as PythonEnvironmentDetails,
-  onDidChangePythonInterpreter,
+  onDidChangeActivePythonEnvironment,
   EnvironmentProvider,
 } from "./python";
 
@@ -65,6 +65,11 @@ function executeFile(file: string, args: string[] = []): Promise<string> {
   });
 }
 
+export type BinaryResolution = {
+  path: string;
+  dependsOnActiveInterpreter: boolean;
+};
+
 /**
  * Finds the `ty` binary path and returns it.
  *
@@ -80,13 +85,14 @@ function executeFile(file: string, args: string[] = []): Promise<string> {
  *    which checks the PATH environment variable.
  * 5. If all else fails, return the bundled executable path.
  */
-async function findBinaryPath(
+export async function findBinaryPath(
   settings: ExtensionSettings,
   environmentProvider: EnvironmentProvider | null,
-): Promise<string> {
+  activeEnvironment: PythonEnvironmentDetails | null,
+): Promise<BinaryResolution> {
   if (!vscode.workspace.isTrusted) {
     logger.info(`Workspace is not trusted; using bundled ty executable: ${BUNDLED_EXECUTABLE}`);
-    return BUNDLED_EXECUTABLE;
+    return { path: BUNDLED_EXECUTABLE, dependsOnActiveInterpreter: false };
   }
 
   // 'path' setting takes priority over everything.
@@ -94,7 +100,7 @@ async function findBinaryPath(
     for (const path of settings.path) {
       if (await fsapi.pathExists(path)) {
         logger.info(`Using ty executable from \`ty.path\`: ${path}`);
-        return path;
+        return { path, dependsOnActiveInterpreter: false };
       }
     }
     logger.info(`Could not find a ty executable from \`ty.path\`: ${settings.path.join(", ")}`);
@@ -104,11 +110,12 @@ async function findBinaryPath(
     logger.info(
       `Using bundled ty executable because \`ty.importStrategy\` is set to \`useBundled\`: ${BUNDLED_EXECUTABLE}`,
     );
-    return BUNDLED_EXECUTABLE;
+    return { path: BUNDLED_EXECUTABLE, dependsOnActiveInterpreter: false };
   }
 
   // Otherwise, we'll call a Python script that tries to locate a binary.
   let tyBinaryPath: string | undefined;
+  let dependsOnActiveInterpreter = false;
 
   const userSpecifiedInterpreterPath = settings.interpreter;
   let interpreter: PythonEnvironmentDetails | null = null;
@@ -134,8 +141,9 @@ async function findBinaryPath(
       // The user didn't explicitly configure `.interpreter`. Try to find the
       // Python executable by using the workspace's Python environment.
       logger.info(`Discovering Python interpreter for workspace: \`${settings.cwd.uri}\``);
+      dependsOnActiveInterpreter = true;
 
-      interpreter = (await environmentProvider.getActiveEnvironment(settings.cwd.uri)) ?? null;
+      interpreter = activeEnvironment;
 
       if (interpreter == null) {
         logger.warn(
@@ -178,19 +186,28 @@ async function findBinaryPath(
   if (tyBinaryPath && tyBinaryPath.length > 0) {
     // First choice: the executable found by the script.
     logger.info(`Using ty executable discovered from Python environment: ${tyBinaryPath}`);
-    return tyBinaryPath;
+    return {
+      path: tyBinaryPath,
+      dependsOnActiveInterpreter,
+    };
   }
 
   // Second choice: the executable in the global environment.
   const globalPath = await which(BINARY_NAME, { nothrow: true });
   if (globalPath != null) {
     logger.info(`Using ty executable from PATH: ${globalPath}`);
-    return globalPath;
+    return {
+      path: globalPath,
+      dependsOnActiveInterpreter,
+    };
   }
 
   // Third choice: bundled executable.
   logger.info(`Falling back to bundled ty executable: ${BUNDLED_EXECUTABLE}`);
-  return BUNDLED_EXECUTABLE;
+  return {
+    path: BUNDLED_EXECUTABLE,
+    dependsOnActiveInterpreter,
+  };
 }
 
 async function createServer(
@@ -202,12 +219,14 @@ async function createServer(
   initializationOptions: InitializationOptions,
   environmentProvider: EnvironmentProvider | null,
   middleware?: Middleware,
-): Promise<LanguageClient> {
-  const binaryPath = await findBinaryPath(settings, environmentProvider);
-  logger.info(`Using ty executable: ${binaryPath}`);
+): Promise<ServerState> {
+  const activeEnvironment =
+    (await environmentProvider?.getActiveEnvironment(settings.cwd.uri)) ?? null;
+  const binaryResolution = await findBinaryPath(settings, environmentProvider, activeEnvironment);
+  const binaryPath = binaryResolution.path;
 
   const serverArgs: string[] = [SERVER_SUBCOMMAND];
-  logger.info(`Starting ty language server with command: ${[binaryPath, ...serverArgs].join(" ")}`);
+  logger.info(`ty language server command: ${[binaryPath, ...serverArgs].join(" ")}`);
 
   const serverOptions = {
     command: binaryPath,
@@ -225,8 +244,18 @@ async function createServer(
     middleware,
   };
 
-  return new LanguageClient(serverId, serverName, serverOptions, clientOptions);
+  return {
+    client: new LanguageClient(serverId, serverName, serverOptions, clientOptions),
+    binaryResolution,
+    activeEnvironmentPythonExecutable: activeEnvironment?.executable ?? null,
+  };
 }
+
+export type ServerState = {
+  client: LanguageClient;
+  binaryResolution: BinaryResolution;
+  activeEnvironmentPythonExecutable: string | null;
+};
 
 let _disposables: Disposable[] = [];
 
@@ -237,7 +266,7 @@ export async function startServer(
   outputChannel: OutputChannel,
   traceOutputChannel: OutputChannel,
   environmentProvider: EnvironmentProvider | null,
-): Promise<LanguageClient | undefined> {
+): Promise<ServerState | null> {
   updateStatus(undefined, LanguageStatusSeverity.Information, true);
 
   const initializationOptions = getInitializationOptions(serverId);
@@ -245,7 +274,7 @@ export async function startServer(
 
   const middleware = createTyMiddleware(environmentProvider);
 
-  const newLSClient = await createServer(
+  const server = await createServer(
     settings,
     serverId,
     serverName,
@@ -255,6 +284,7 @@ export async function startServer(
     environmentProvider,
     middleware,
   );
+  const newLSClient = server.client;
   logger.info("Starting ty language server.");
 
   _disposables.push(
@@ -319,7 +349,7 @@ export async function startServer(
     }),
 
     // TODO: Do we need this?
-    onDidChangePythonInterpreter((e) => {
+    onDidChangeActivePythonEnvironment((e) => {
       // If the Python interpreter changed and the server registered for `didChangeConfiguration`,
       // notifications, send the notification to the server so that it can request the updated
       // interpreter settings.
@@ -339,10 +369,10 @@ export async function startServer(
     updateStatus(l10n.t("Server failed to start."), LanguageStatusSeverity.Error);
     logger.error(`Failed to start ty language server: ${ex}`);
     dispose();
-    return undefined;
+    return null;
   }
 
-  return newLSClient;
+  return server;
 }
 
 export async function stopServer(lsClient: LanguageClient): Promise<void> {
