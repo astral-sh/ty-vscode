@@ -113,6 +113,12 @@
           "scope": "window",
           "type": "boolean"
         },
+        "ty.forwardExtraPaths": {
+          "default": true,
+          "markdownDescription": "Automatically detect `python.analysis.extraPaths` and merge them into `ty.configuration.environment.extra-paths`.",
+          "scope": "resource",
+          "type": "boolean"
+        },
         "ty.importStrategy": {
           "default": "fromEnvironment",
           "markdownDescription": "Strategy for loading the `ty` executable. `fromEnvironment` picks up ty from the environment, falling back to the bundled version if needed. `useBundled` uses the version bundled with the extension.",
