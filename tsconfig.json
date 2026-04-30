@@ -12,7 +12,8 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noUnusedParameters": true,
+    "typeRoots": ["./types", "./node_modules/@types"],
     "types": ["fs-extra", "node", "vscode", "which"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "types/**/*.d.ts"]
 }

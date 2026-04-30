@@ -5,13 +5,13 @@ import {
   DidChangeConfigurationNotification,
 } from "vscode-languageclient";
 import { Uri, workspace } from "vscode";
-import type { PythonExtension } from "@vscode/python-extension";
 import {
   resolveVariables,
   type InitializationOptions,
   type ExtensionSettings,
   checkSettingSupported,
 } from "./common/settings";
+import { EnvironmentProvider } from "./common/python";
 
 // Keys that are handled by the extension and should not be sent to the server
 type ExtensionOnlyKeys = keyof InitializationOptions | keyof ExtensionSettings | "trace";
@@ -35,12 +35,12 @@ function isExtensionOnlyKey(key: string): key is ExtensionOnlyKeys {
   return key in EXTENSION_ONLY_KEYS;
 }
 
-interface TyMiddleware extends Middleware {
+export interface TyMiddleware extends Middleware {
   isDidChangeConfigurationRegistered(): boolean;
   setServerVersion(major: number, minor: number, patch: number): void;
 }
 
-export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddleware {
+export function createTyMiddleware(environmentProvider: EnvironmentProvider | null): TyMiddleware {
   const didChangeRegistrations = new Set<string>();
   let serverVersion: null | { major: number; minor: number; patch: number } = null;
 
@@ -93,36 +93,37 @@ export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddlewa
 
             if (param.section === "ty") {
               const scopeUri = param.scopeUri ? Uri.parse(param.scopeUri) : undefined;
-              const path = pythonExtension.environments.getActiveEnvironmentPath(scopeUri);
-
-              const resolved = await pythonExtension.environments.resolveEnvironment(path);
+              const resolved = await environmentProvider?.getActiveEnvironment(scopeUri);
 
               const activeEnvironment =
                 resolved == null
                   ? null
-                  : {
+                  : ({
                       version:
                         resolved.version == null
-                          ? null
+                          ? undefined
                           : {
-                              major: resolved.version.major as number,
-                              minor: resolved.version.minor as number,
-                              patch: resolved.version.micro as number,
-                              sysVersion: resolved.version.sysVersion as string,
+                              major: resolved.version.major,
+                              minor: resolved.version.minor,
+                              patch: resolved.version.patch ?? undefined,
+                              sysVersion: resolved.version.sysVersion ?? "0.0.0 (unknown)",
                             },
                       environment:
                         resolved.environment == null
-                          ? null
+                          ? undefined
                           : {
-                              folderUri: resolved.environment.folderUri.toString(),
-                              uri: resolved.environment.name as string,
-                              type: resolved.environment.type as string,
+                              folderUri: resolved.environment.environmentPath.toString(),
+                              name: resolved.environment.displayName ?? undefined,
+                              type: resolved.environment.type ?? undefined,
                             },
                       executable: {
-                        uri: resolved.executable.uri?.toString(),
-                        sysPrefix: resolved.executable.sysPrefix as string,
+                        uri:
+                          resolved.executable == null
+                            ? undefined
+                            : Uri.file(resolved.executable).toString(),
+                        sysPrefix: resolved.sysPrefix,
                       },
-                    };
+                    } satisfies ServerActiveEnvironmentSchema);
 
               // Filter out extension-only settings that shouldn't be sent to the server
               const serverSettings = Object.fromEntries(
@@ -161,3 +162,9 @@ export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddlewa
 
   return middleware;
 }
+
+type ServerActiveEnvironmentSchema = {
+  executable: { uri?: string; sysPrefix: string };
+  environment?: { folderUri: string; type?: string; name?: string };
+  version?: { major: number; minor: number; patch?: number; sysVersion?: string };
+};
