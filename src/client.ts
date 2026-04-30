@@ -146,14 +146,18 @@ export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddlewa
               // Merge python.analysis.extraPaths into ty.configuration["environment"]["extra-paths"]
               // when ty.forwardExtraPaths is enabled (default: true)
               if (result?.forwardExtraPaths) {
-                const extraPaths = workspace.getConfiguration("python", scopeUri)?.get<string[]>("analysis.extraPaths") ?? [];
+                const extraPaths =
+                  workspace
+                    .getConfiguration("python", scopeUri)
+                    ?.get<string[]>("analysis.extraPaths") ?? [];
                 if (extraPaths.length > 0 && serverSettings.configuration) {
-                  const typedSettings: { configuration?: { environment?: { "extra-paths"?: string[]; }; }; } = serverSettings
-                  let a = (((typedSettings
-                    .configuration ??= {})
-                    .environment ??= {})
-                    ["extra-paths"] ??= [])
-                  a.push(...extraPaths)
+                  const typedSettings: {
+                    configuration?: { environment?: { "extra-paths"?: string[] } };
+                  } = serverSettings;
+                  let paths = (((typedSettings.configuration ??= {}).environment ??= {})[
+                    "extra-paths"
+                  ] ??= []);
+                  paths.push(...extraPaths);
                 }
               }
 
