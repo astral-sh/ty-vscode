@@ -4,10 +4,8 @@ import { platform } from "node:os";
 import * as vscode from "vscode";
 import { type Disposable, l10n, LanguageStatusSeverity, type OutputChannel } from "vscode";
 import {
-  DidChangeConfigurationNotification,
   type LanguageClientOptions,
   MessageType,
-  type Middleware,
   ShowMessageNotification,
   State,
 } from "vscode-languageclient";
@@ -29,11 +27,10 @@ import { getDocumentSelector } from "./utilities";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 import which = require("which");
-import { createTyMiddleware } from "../client";
+import { createTyMiddleware, type TyMiddleware } from "../client";
 import {
   checkInterpreterVersion,
   PythonEnvironmentDetails as PythonEnvironmentDetails,
-  onDidChangeActivePythonEnvironment,
   EnvironmentProvider,
 } from "./python";
 
@@ -220,7 +217,7 @@ async function createServer(
   traceOutputChannel: OutputChannel,
   initializationOptions: InitializationOptions,
   environmentProvider: EnvironmentProvider | null,
-  middleware?: Middleware,
+  middleware: TyMiddleware,
 ): Promise<ServerState> {
   const activeEnvironment =
     (await environmentProvider?.getActiveEnvironment(settings.cwd.uri)) ?? null;
@@ -250,6 +247,7 @@ async function createServer(
     client: new LanguageClient(serverId, serverName, serverOptions, clientOptions),
     binaryResolution,
     activeEnvironmentPythonExecutable: activeEnvironment?.executable ?? null,
+    middleware,
   };
 }
 
@@ -257,6 +255,7 @@ export type ServerState = {
   client: LanguageClient;
   binaryResolution: BinaryResolution;
   activeEnvironmentPythonExecutable: string | null;
+  middleware: TyMiddleware;
 };
 
 let _disposables: Disposable[] = [];
@@ -348,20 +347,6 @@ export async function startServer(
           outputChannel.show();
         }
       });
-    }),
-
-    // TODO: Do we need this?
-    onDidChangeActivePythonEnvironment((e) => {
-      // If the Python interpreter changed and the server registered for `didChangeConfiguration`,
-      // notifications, send the notification to the server so that it can request the updated
-      // interpreter settings.
-      if (middleware.isDidChangeConfigurationRegistered()) {
-        logger.debug(
-          `Active Python environment for \`${e.uri}\` changed; sending didChangeConfiguration notification to the ty server.`,
-        );
-
-        newLSClient.sendNotification(DidChangeConfigurationNotification.type, undefined);
-      }
     }),
   );
 

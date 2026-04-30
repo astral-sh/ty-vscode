@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import type { LanguageClient } from "vscode-languageclient/node";
+import { DidChangeConfigurationNotification } from "vscode-languageclient";
 import { LazyOutputChannel, logger } from "./common/logger";
 import {
   getEnvironmentProvider,
@@ -161,9 +162,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         return;
       }
 
-      // Once ty supports workspace/didChangeConfiguration, this can be replaced with a configuration notification.
+      if (serverState.middleware.isDidChangeConfigurationRegistered()) {
+        logger.debug(
+          `Active Python environment for '${e.uri}' changed; sending didChangeConfiguration notification to the ty server.`,
+        );
+        serverState.activeEnvironmentPythonExecutable = e.path ?? null;
+        serverState.client.sendNotification(DidChangeConfigurationNotification.type, undefined);
+        return;
+      }
+
       logger.info(`Restarting ${serverName} because the active Python environment changed.`);
-      serverState.activeEnvironmentPythonExecutable = e.path ?? null;
       await requestRestart();
     }),
 

@@ -35,7 +35,7 @@ function isExtensionOnlyKey(key: string): key is ExtensionOnlyKeys {
   return key in EXTENSION_ONLY_KEYS;
 }
 
-interface TyMiddleware extends Middleware {
+export interface TyMiddleware extends Middleware {
   isDidChangeConfigurationRegistered(): boolean;
   setServerVersion(major: number, minor: number, patch: number): void;
 }
