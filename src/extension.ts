@@ -105,57 +105,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     await restartPromise;
   };
 
-  const maybeRestartForPythonInterpreterChange = async (
-    projectRoot: vscode.WorkspaceFolder,
-    interpreter: string | undefined,
-  ) => {
-    if (restartPromise != null) {
-      logger.debug(
-        `${serverName} restart is already in progress; waiting before checking the Python interpreter change.`,
-      );
-      await restartPromise;
-    }
-
-    if (serverState == null) {
-      logger.info(
-        `Unable to determine the current ${serverName} executable; restarting ${serverName}.`,
-      );
-      await requestRestart();
-      return;
-    }
-
-    if (serverState.binaryResolution.dependsOnActiveInterpreter) {
-      const settings = await getExtensionSettings(serverId, projectRoot);
-      const activeEnvironment =
-        (await environmentProvider?.getActiveEnvironment(projectRoot.uri)) ?? null;
-      const nextBinaryResolution = await findBinaryPath(
-        settings,
-        environmentProvider,
-        activeEnvironment,
-      );
-
-      if (nextBinaryResolution.path !== serverState.binaryResolution.path) {
-        logger.info(
-          `Resolved ty executable changed from '${serverState.binaryResolution.path}' to '${nextBinaryResolution.path}'; restarting ${serverName}.`,
-        );
-        await requestRestart();
-        return;
-      }
-    }
-
-    if (interpreter != null && interpreter === serverState.activeEnvironmentPythonExecutable) {
-      logger.info(
-        `Skipping ${serverName} restart because the active Python environment is unchanged: '${interpreter}'.`,
-      );
-      return;
-    }
-
-    // Once ty supports workspace/didChangeConfiguration, this can be replaced with a configuration notification.
-    logger.info(`Restarting ${serverName} because the active Python environment changed.`);
-    serverState.activeEnvironmentPythonExecutable = interpreter ?? null;
-    await requestRestart();
-  };
-
   context.subscriptions.push(
     onDidChangeActivePythonEnvironment(async (e: OnDidChangeActivePythonEnvironmentEventArgs) => {
       const interpreter = e.path ?? "<unknown>";
@@ -171,7 +120,51 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
       logger.info(`Selected Python interpreter for workspace changed to '${interpreter}'.`);
 
-      await maybeRestartForPythonInterpreterChange(projectRoot, e.path);
+      if (restartPromise != null) {
+        logger.debug(
+          `${serverName} restart is already in progress; waiting before checking the Python interpreter change.`,
+        );
+        await restartPromise;
+      }
+
+      if (serverState == null) {
+        logger.info(
+          `Unable to determine the current ${serverName} executable; restarting ${serverName}.`,
+        );
+        await requestRestart();
+        return;
+      }
+
+      if (serverState.binaryResolution.dependsOnActiveInterpreter) {
+        const settings = await getExtensionSettings(serverId, projectRoot);
+        const activeEnvironment =
+          (await environmentProvider?.getActiveEnvironment(projectRoot.uri)) ?? null;
+        const nextBinaryResolution = await findBinaryPath(
+          settings,
+          environmentProvider,
+          activeEnvironment,
+        );
+
+        if (nextBinaryResolution.path !== serverState.binaryResolution.path) {
+          logger.info(
+            `Resolved ty executable changed from '${serverState.binaryResolution.path}' to '${nextBinaryResolution.path}'; restarting ${serverName}.`,
+          );
+          await requestRestart();
+          return;
+        }
+      }
+
+      if (e.path != null && e.path === serverState.activeEnvironmentPythonExecutable) {
+        logger.info(
+          `Skipping ${serverName} restart because the active Python environment is unchanged: '${e.path}'.`,
+        );
+        return;
+      }
+
+      // Once ty supports workspace/didChangeConfiguration, this can be replaced with a configuration notification.
+      logger.info(`Restarting ${serverName} because the active Python environment changed.`);
+      serverState.activeEnvironmentPythonExecutable = e.path ?? null;
+      await requestRestart();
     }),
 
     onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {
