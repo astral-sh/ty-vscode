@@ -150,7 +150,7 @@ export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddlewa
                   workspace
                     .getConfiguration("python", scopeUri)
                     ?.get<string[]>("analysis.extraPaths") ?? [];
-                if (extraPaths.length > 0 && serverSettings.configuration) {
+                if (extraPaths.length > 0) {
                   const typedSettings: {
                     configuration?: { environment?: { "extra-paths"?: string[] } };
                   } = serverSettings;

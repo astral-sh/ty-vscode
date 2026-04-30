@@ -100,6 +100,7 @@ export async function getExtensionSettings(
     path: resolveVariables(config.get<string[]>("path") ?? [], workspace),
     interpreter,
     importStrategy: config.get<ImportStrategy>("importStrategy") ?? "fromEnvironment",
+    forwardExtraPaths: config.get("forwardExtraPaths") ?? true
   };
 }
 
