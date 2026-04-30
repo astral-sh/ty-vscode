@@ -103,6 +103,7 @@ class PythonExtension implements EnvironmentProvider {
       major: version.major,
       minor: version.minor,
       patch: version.micro,
+      sysVersion: version.sysVersion,
     };
   }
 
@@ -144,18 +145,18 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
     const extension = extensions.getExtension("ms-python.vscode-python-envs");
 
     if (extension == null) {
-      logger.info("The Python Environment extensions is not installed or is disabled.");
+      logger.info("The Python Environments extension is not installed or is disabled.");
       return null;
     }
 
     if (!extension.isActive) {
       try {
-        logger.info("Activating the Python Environment extension");
+        logger.info("Activating the Python Environments extension");
         await extension.activate();
-        logger.info("Successfully activated the Python Environment extension.");
+        logger.info("Successfully activated the Python Environments extension.");
       } catch {
         // Python environments extension isn't available.
-        logger.warn("Failed to activate the Python Environment extension.");
+        logger.warn("Failed to activate the Python Environments extension.");
 
         return null;
       }
@@ -165,10 +166,10 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
   }
 
   async initialize(disposables: Disposable[]): Promise<void> {
-    logger.info("Using Python Environment extension for Python environment detection");
+    logger.info("Using Python Environments extension for Python environment detection");
 
     // Fetch the environment before registering the did change environment handler.
-    // It ensures that the Python Environment extension doesn't wire an extra
+    // It ensures that the Python Environments extension doesn't wire an extra
     // `didChangeEnvironment` event for the workspace root (which results in a server restart...)
     // Very annoying this is.
     let initial = await this.getActiveEnvironment(undefined);
@@ -177,36 +178,36 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
 
     disposables.push(
       this.#extension.onDidChangeEnvironment((e) => {
+        logger.info(`onDidChangePythonInterpreter: ${JSON.stringify(e, null, 2)}`);
+
+        // We only care about the executable path, but the Python environment extension
+        // may also trigger the event if other properties of the environment changed (e.g. environment id).
+        // That's why we dedupe the information here to avoid unnecessary server restarts.
+        const environmentKey = `${e.uri?.toString() ?? ""}:${e.new?.execInfo.run.executable}`;
+
+        if (environmentKey === lastEnvironmentKey) {
+          logger.info(`Ignoring Python Environments change event: ${environmentKey}`);
+          return;
+        }
+
+        lastEnvironmentKey = environmentKey;
+
         // If this is the first event, only emit it if the environment is different from the one we just resolved
-        // I have no idea why the Python Environment extension emits this event. We haven't even regsitered
-        // our handler at that point.
+        // The Python Environments extension can emit an initial change event for
+        // the same environment that we resolved before registering this handler.
         if (
           initial != null &&
           e.uri == null &&
           initial.executable === e.new?.execInfo.run.executable
         ) {
+          logger.info(
+            `Ignoring initial Python environment change event for the workspace root: ${e.new?.execInfo.run.executable}`,
+          );
           initial = null;
           return;
         }
 
         initial = null;
-
-        // The Python environment extension emits multiple no-op events
-        // during startup. This alsmost certainly a bug, let's dedupe here.
-        if (e.old?.execInfo.run.executable === e.new?.execInfo.run.executable) {
-          return;
-        }
-
-        // The Python environment extension also emits multiple events after selecting an interpreter,
-        // for no appearant reason. Again, we duplicate them here to avoid unnecessary server restarts.
-        // For this, we remember what the last event was and only fire if the new event has something new to tell
-        const environmentKey = `${e.uri?.toString() ?? ""}:${e.new?.execInfo.run.executable}`;
-
-        if (environmentKey === lastEnvironmentKey) {
-          return;
-        }
-
-        lastEnvironmentKey = environmentKey;
 
         onDidChangePythonInterpreterEvent.fire({
           path: e.new?.execInfo.run.executable,
@@ -247,7 +248,7 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
       return null;
     }
 
-    logger.info(`Resolved environment ${environment.environmentPath}`);
+    logger.info(`Resolved Python environment: ${environment.environmentPath}`);
 
     return PythonEnvironmentExtension.toEnvironmentDetails(environment);
   }
@@ -282,6 +283,7 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
       major,
       minor,
       patch,
+      sysVersion: null,
     };
   }
 }
@@ -302,7 +304,7 @@ export interface PythonEnvironmentDetails {
    * If the environment is a virtual environment, its display name
    * and path. `null` if this is a global Python installation.
    *
-   * Always `null` when using the Python Environment extension.
+   * @deprecated Always `null` when using the Python Environments extension.
    */
   environment?: {
     displayName: string | null;
@@ -311,7 +313,15 @@ export interface PythonEnvironmentDetails {
   } | null;
 
   /// The Python version
-  version: { major: number; minor: number; patch: number | null } | null;
+  version: {
+    major: number;
+    minor: number;
+    patch: number | null;
+    /**
+     * @deprecated Always `null` when using the Python Environments extension.
+     */
+    sysVersion: string | null;
+  } | null;
 }
 
 export function checkInterpreterVersion(resolved: PythonEnvironmentDetails): boolean | null {
@@ -326,7 +336,7 @@ export function checkInterpreterVersion(resolved: PythonEnvironmentDetails): boo
   }
 
   logger.warn(`Python version ${version.major}.${version.minor} is not supported.`);
-  logger.warn(`Selected python path: ${resolved.executable}`);
+  logger.warn(`Selected Python path: ${resolved.executable}`);
   logger.warn("Supported versions are 3.8 and above.");
   return false;
 }

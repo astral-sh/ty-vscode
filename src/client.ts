@@ -106,6 +106,7 @@ export function createTyMiddleware(environmentProvider: EnvironmentProvider | nu
                               major: resolved.version.major,
                               minor: resolved.version.minor,
                               patch: resolved.version.patch ?? undefined,
+                              sysVersion: resolved.version.sysVersion ?? "0.0.0 (unknown)",
                             },
                       environment:
                         resolved.environment == null

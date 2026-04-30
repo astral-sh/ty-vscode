@@ -59,7 +59,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (!restartQueued) {
       // Schedule a new restart after the current restart.
       logger.info(
-        `Triggered ${serverName} restart while restart is in progress; queuing a restart.`,
+        `${serverName} restart requested while another restart is in progress; queuing one more restart.`,
       );
       restartQueued = true;
     }
@@ -73,7 +73,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       if (!restartQueued) {
         // Schedule a new restart after the current restart.
         logger.info(
-          `Triggered ${serverName} restart while restart is in progress; queuing a restart.`,
+          `${serverName} restart requested while another restart is in progress; queuing one more restart.`,
         );
         restartQueued = true;
       }
@@ -110,16 +110,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   context.subscriptions.push(
     onDidChangePythonInterpreter(async (e: OnDidChangePythonInterpreterEventArgs) => {
-      logger.info(`onDidChangePythonInterpreter: ${e.uri} -> ${e.path}`);
+      const interpreter = e.path ?? "<unknown>";
 
       const projectRoot = await getProjectRoot();
 
       if (e.uri != null && e.uri.toString() !== projectRoot.uri.toString()) {
-        logger.info(`Skipping change because interpreter isn't for workspace root`);
+        logger.debug(
+          `Skip scoped Python interpreter for ${e.uri}; workspace root is ${projectRoot.uri}.`,
+        );
         return;
       }
 
-      logger.info(`Selected Python interpreter changed to \`${e.path}\``);
+      logger.info(
+        `Selected Python interpreter for workspace changed to \`${interpreter}\`; restarting ${serverName}.`,
+      );
 
       await runServer();
     }),
