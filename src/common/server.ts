@@ -91,7 +91,9 @@ export async function findBinaryPath(
   activeEnvironment: PythonEnvironmentDetails | null,
 ): Promise<BinaryResolution> {
   if (!vscode.workspace.isTrusted) {
-    logger.info(`Workspace is not trusted; using bundled ty executable: ${BUNDLED_EXECUTABLE}`);
+    logger.info(
+      `Workspace is not trusted; resolved bundled ty executable: '${BUNDLED_EXECUTABLE}'`,
+    );
     return { path: BUNDLED_EXECUTABLE, dependsOnActiveInterpreter: false };
   }
 
@@ -99,16 +101,16 @@ export async function findBinaryPath(
   if (settings.path.length > 0) {
     for (const path of settings.path) {
       if (await fsapi.pathExists(path)) {
-        logger.info(`Using ty executable from \`ty.path\`: ${path}`);
+        logger.info(`Resolved ty executable from 'ty.path': '${path}'`);
         return { path, dependsOnActiveInterpreter: false };
       }
     }
-    logger.info(`Could not find a ty executable from \`ty.path\`: ${settings.path.join(", ")}`);
+    logger.info(`Could not find a ty executable from 'ty.path': '${settings.path.join(", ")}'`);
   }
 
   if (settings.importStrategy === "useBundled") {
     logger.info(
-      `Using bundled ty executable because \`ty.importStrategy\` is set to \`useBundled\`: ${BUNDLED_EXECUTABLE}`,
+      `Resolved bundled ty executable because 'ty.importStrategy' is set to 'useBundled': '${BUNDLED_EXECUTABLE}'`,
     );
     return { path: BUNDLED_EXECUTABLE, dependsOnActiveInterpreter: false };
   }
@@ -124,7 +126,7 @@ export async function findBinaryPath(
       // The user configured a path to a Python interpreter, but we need to resolve it to a
       // a Python executable (and verify that it indeed exists).
       logger.info(
-        `Resolving Python interpreter from \`ty.interpreter\`: \`${userSpecifiedInterpreterPath}\``,
+        `Resolving Python interpreter from 'ty.interpreter': '${userSpecifiedInterpreterPath}'`,
       );
 
       interpreter =
@@ -132,7 +134,7 @@ export async function findBinaryPath(
 
       if (interpreter == null) {
         logger.warn(
-          `\`${userSpecifiedInterpreterPath}\` (from \`ty.interpreter\`) doesn't point to a valid interpreter. Falling back to discovering the active Python environment.`,
+          `'${userSpecifiedInterpreterPath}' (from 'ty.interpreter') doesn't point to a valid interpreter. Falling back to discovering the active Python environment.`,
         );
       }
     }
@@ -140,7 +142,7 @@ export async function findBinaryPath(
     if (interpreter == null) {
       // The user didn't explicitly configure `.interpreter`. Try to find the
       // Python executable by using the workspace's Python environment.
-      logger.info(`Discovering Python interpreter for workspace: \`${settings.cwd.uri}\``);
+      logger.info(`Resolving active Python environment for workspace: '${settings.cwd.uri}'`);
       dependsOnActiveInterpreter = true;
 
       interpreter = activeEnvironment;
@@ -157,10 +159,10 @@ export async function findBinaryPath(
   if (interpreter != null) {
     if (interpreter.executable == null) {
       logger.warn(
-        `Resolved Python interpreter has no executable path: \`${userSpecifiedInterpreterPath}\``,
+        `Resolved Python interpreter has no executable path: '${userSpecifiedInterpreterPath}'`,
       );
     } else {
-      logger.info(`Using Python interpreter: ${interpreter.executable}`);
+      logger.info(`Resolved Python executable for ty lookup: '${interpreter.executable}'`);
 
       if (checkInterpreterVersion(interpreter)) {
         try {
@@ -185,7 +187,7 @@ export async function findBinaryPath(
 
   if (tyBinaryPath && tyBinaryPath.length > 0) {
     // First choice: the executable found by the script.
-    logger.info(`Using ty executable discovered from Python environment: ${tyBinaryPath}`);
+    logger.info(`Resolved ty executable from Python environment: '${tyBinaryPath}'`);
     return {
       path: tyBinaryPath,
       dependsOnActiveInterpreter,
@@ -195,7 +197,7 @@ export async function findBinaryPath(
   // Second choice: the executable in the global environment.
   const globalPath = await which(BINARY_NAME, { nothrow: true });
   if (globalPath != null) {
-    logger.info(`Using ty executable from PATH: ${globalPath}`);
+    logger.info(`Resolved ty executable from PATH: '${globalPath}'`);
     return {
       path: globalPath,
       dependsOnActiveInterpreter,
@@ -203,7 +205,7 @@ export async function findBinaryPath(
   }
 
   // Third choice: bundled executable.
-  logger.info(`Falling back to bundled ty executable: ${BUNDLED_EXECUTABLE}`);
+  logger.info(`Resolved bundled ty executable: '${BUNDLED_EXECUTABLE}'`);
   return {
     path: BUNDLED_EXECUTABLE,
     dependsOnActiveInterpreter,
@@ -226,7 +228,7 @@ async function createServer(
   const binaryPath = binaryResolution.path;
 
   const serverArgs: string[] = [SERVER_SUBCOMMAND];
-  logger.info(`ty language server command: ${[binaryPath, ...serverArgs].join(" ")}`);
+  logger.info(`ty language server command: '${[binaryPath, ...serverArgs].join(" ")}'`);
 
   const serverOptions = {
     command: binaryPath,

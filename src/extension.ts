@@ -136,7 +136,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
       if (nextBinaryResolution.path !== serverState.binaryResolution.path) {
         logger.info(
-          `Resolved ty executable changed from ${serverState.binaryResolution.path} to ${nextBinaryResolution.path}; restarting ${serverName}.`,
+          `Resolved ty executable changed from '${serverState.binaryResolution.path}' to '${nextBinaryResolution.path}'; restarting ${serverName}.`,
         );
         await requestRestart();
         return;
@@ -145,7 +145,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     if (interpreter != null && interpreter === serverState.activeEnvironmentPythonExecutable) {
       logger.info(
-        `Skipping ${serverName} restart because the active Python environment is unchanged: ${interpreter}.`,
+        `Skipping ${serverName} restart because the active Python environment is unchanged: '${interpreter}'.`,
       );
       return;
     }
@@ -164,12 +164,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
       if (e.uri != null && e.uri.toString() !== projectRoot.uri.toString()) {
         logger.debug(
-          `Skip scoped Python interpreter for ${e.uri}; workspace root is ${projectRoot.uri}.`,
+          `Skip scoped Python interpreter for '${e.uri}'; workspace root is '${projectRoot.uri}'.`,
         );
         return;
       }
 
-      logger.info(`Selected Python interpreter for workspace changed to \`${interpreter}\`.`);
+      logger.info(`Selected Python interpreter for workspace changed to '${interpreter}'.`);
 
       await maybeRestartForPythonInterpreterChange(projectRoot, e.path);
     }),
@@ -178,6 +178,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       // TODO(dhruvmanila): Notify the server with `DidChangeConfigurationNotification` and let
       // the server pull in the updated configuration.
       if (checkIfConfigurationChanged(e, serverId)) {
+        logger.info("Restart server because configuration changed.");
         await requestRestart();
       }
     }),
@@ -196,7 +197,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     registerLanguageStatusItem(serverId, serverName, `${serverId}.showLogs`),
   );
 
-  // TODO what about untrusted workspaces?
   await environmentProvider?.initialize(context.subscriptions);
 
   setImmediate(async () => {

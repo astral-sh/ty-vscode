@@ -169,13 +169,10 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
   async initialize(disposables: Disposable[]): Promise<void> {
     logger.info("Using Python Environments extension for Python environment detection");
 
-    // Fetch the environment before registering the did change environment handler.
-    // It ensures that the Python Environments extension doesn't wire an extra
-    // `didChangeEnvironment` event for the workspace root (which results in a server restart...)
-    // Very annoying this is.
+    // The Python Environments extension can emit an initial root-scope event for
+    // the same environment we just read. Filter it here so provider startup noise
+    // does not reach the extension-level restart logic.
     let initial = await this.getActiveEnvironment(undefined);
-
-    let lastEnvironmentKey: string | undefined = undefined;
 
     disposables.push(
       this.#extension.onDidChangeEnvironment((e) => {
@@ -186,29 +183,17 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
 
         if (oldExecutable != null && oldExecutable === newExecutable) {
           logger.debug(
-            `Ignoring Python Environments change event because the executable is unchanged: ${newExecutable}`,
+            `Ignoring Python Environments change event because the executable is unchanged: '${newExecutable}'`,
           );
           return;
         }
-
-        // We only care about the executable path, but the Python environment extension
-        // may also trigger the event if other properties of the environment changed (e.g. environment id).
-        // That's why we dedupe the information here to avoid unnecessary server restarts.
-        const environmentKey = `${e.uri?.toString() ?? ""}:${newExecutable}`;
-
-        if (environmentKey === lastEnvironmentKey) {
-          logger.info(`Ignoring Python Environments change event: ${environmentKey}`);
-          return;
-        }
-
-        lastEnvironmentKey = environmentKey;
 
         // If this is the first event, only emit it if the environment is different from the one we just resolved
         // The Python Environments extension can emit an initial change event for
         // the same environment that we resolved before registering this handler.
         if (initial != null && e.uri == null && initial.executable === newExecutable) {
           logger.info(
-            `Ignoring initial Python environment change event for the workspace root: ${newExecutable}`,
+            `Ignoring initial Python environment change event for the workspace root: '${newExecutable}'`,
           );
           initial = null;
           return;
@@ -233,7 +218,7 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
 
     if (environment.error != null) {
       logger.warn(
-        `Ignoring environment ${environment.environmentPath} with error: ${environment.error}`,
+        `Ignoring environment '${environment.environmentPath}' with error: ${environment.error}`,
       );
       return null;
     }
@@ -250,12 +235,12 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
 
     if (environment.error) {
       logger.warn(
-        `Ignoring environment ${environment.environmentPath} with errors: ${environment.error}`,
+        `Ignoring environment '${environment.environmentPath}' with errors: ${environment.error}`,
       );
       return null;
     }
 
-    logger.debug(`Resolved Python environment: ${environment.environmentPath}`);
+    logger.debug(`Resolved Python environment: '${environment.environmentPath}'`);
 
     return PythonEnvironmentExtension.toEnvironmentDetails(environment);
   }
@@ -343,7 +328,7 @@ export function checkInterpreterVersion(resolved: PythonEnvironmentDetails): boo
   }
 
   logger.warn(`Python version ${version.major}.${version.minor} is not supported.`);
-  logger.warn(`Selected Python path: ${resolved.executable}`);
+  logger.warn(`Selected Python path: '${resolved.executable}'`);
   logger.warn("Supported versions are 3.8 and above.");
   return false;
 }
