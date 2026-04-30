@@ -24,6 +24,7 @@ export interface ExtensionSettings {
   path: string[];
   interpreter: string[];
   importStrategy: ImportStrategy;
+  forwardExtraPaths: boolean;
 }
 
 export function resolveVariables(value: string[], workspace?: WorkspaceFolder): string[];

@@ -29,6 +29,7 @@ const EXTENSION_ONLY_KEYS = {
 
   // Client-handled settings
   trace: true,
+  forwardExtraPaths: true,
 } as const satisfies Record<ExtensionOnlyKeys, true>;
 
 function isExtensionOnlyKey(key: string): key is ExtensionOnlyKeys {
@@ -140,6 +141,20 @@ export function createTyMiddleware(pythonExtension: PythonExtension): TyMiddlewa
                   serverSettings.configurationFile,
                   workspaceFolder,
                 );
+              }
+
+              // Merge python.analysis.extraPaths into ty.configuration["environment"]["extra-paths"]
+              // when ty.forwardExtraPaths is enabled (default: true)
+              if (result?.forwardExtraPaths) {
+                const extraPaths = workspace.getConfiguration("python", scopeUri)?.get<string[]>("analysis.extraPaths") ?? [];
+                if (extraPaths.length > 0 && serverSettings.configuration) {
+                  const typedSettings: { configuration?: { environment?: { "extra-paths"?: string[]; }; }; } = serverSettings
+                  let a = (((typedSettings
+                    .configuration ??= {})
+                    .environment ??= {})
+                    ["extra-paths"] ??= [])
+                  a.push(...extraPaths)
+                }
               }
 
               return {
