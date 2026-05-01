@@ -108,17 +108,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   let activeEnvironmentChangePromise = Promise.resolve();
   const enqueueActiveEnvironmentChange = (task: () => Promise<void>) => {
-    const run = async () => {
-      try {
-        await task();
-      } catch (error) {
-        logger.error(`Failed to handle Python environment change: ${error}`);
-      }
-    };
-    const current = activeEnvironmentChangePromise.then(run, run);
+    const current = activeEnvironmentChangePromise.then(task, task);
     activeEnvironmentChangePromise = current.then(
       () => undefined,
-      () => undefined,
+      (error) => {
+        logger.error(`Failed to handle Python environment change: ${error}`);
+      },
     );
     return current;
   };
@@ -128,16 +123,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       await enqueueActiveEnvironmentChange(async () => {
         const interpreter = e.path ?? "<unknown>";
 
-        const projectRoot = await getProjectRoot();
-
-        if (e.uri != null && e.uri.toString() !== projectRoot.uri.toString()) {
-          logger.debug(
-            `Skip scoped Python interpreter for '${e.uri}'; workspace root is '${projectRoot.uri}'.`,
-          );
-          return;
-        }
-
-        logger.info(`Selected Python interpreter for workspace changed to '${interpreter}'.`);
+        logger.info(
+          `Selected Python interpreter for '${e.uri ?? "workspace"} changed to '${interpreter}'.`,
+        );
 
         if (restartPromise != null) {
           logger.debug(
@@ -147,21 +135,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }
 
         if (serverState == null) {
-          logger.info(
-            `Unable to determine the current ${serverName} executable; restarting ${serverName}.`,
-          );
-          await requestRestart();
+          // server isn't running.
           return;
         }
 
-        if (e.path != null && e.path === serverState.activeEnvironmentPythonExecutable) {
-          logger.info(
-            `Skipping ${serverName} restart because the active Python environment is unchanged: '${e.path}'.`,
-          );
-          return;
-        }
+        const projectRoot = await getProjectRoot();
 
-        if (serverState.binaryResolution.dependsOnActiveInterpreter) {
+        const changeAffectsProjectRoot =
+          e.uri == null || e.uri.toString() === projectRoot.uri.toString();
+
+        // If this event changed the active environment of the project root AND the server used the active environment
+        // to find the ty executable, then check if the ty executable still resolves to the same path. If it doesn't
+        // restart the server.
+        if (changeAffectsProjectRoot && serverState.binaryResolution.dependsOnActiveInterpreter) {
           const settings = await getExtensionSettings(serverId, projectRoot);
           logger.group("Checking whether the active Python environment changes the ty executable.");
           let nextBinaryResolution;
@@ -191,7 +177,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           logger.debug(
             `Active Python environment for '${e.uri}' changed; sending didChangeConfiguration notification to the ty server.`,
           );
-          serverState.activeEnvironmentPythonExecutable = e.path ?? null;
           serverState.client.sendNotification(DidChangeConfigurationNotification.type, undefined);
           return;
         }

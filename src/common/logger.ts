@@ -4,29 +4,15 @@ import * as vscode from "vscode";
 const GROUP_INDENT = "  ";
 const MAX_LEVEL_LABEL_LENGTH = "[warning]".length;
 
-type LogLevel = "error" | "warn" | "info" | "debug" | "trace";
-
-function levelLabelLength(level: LogLevel): number {
-  switch (level) {
-    case "error":
-      return "[error]".length;
-    case "warn":
-      return "[warning]".length;
-    case "info":
-      return "[info]".length;
-    case "debug":
-      return "[debug]".length;
-    case "trace":
-      return "[trace]".length;
-  }
-}
+type LogLevel = "error" | "warning" | "info" | "debug" | "trace";
 
 function groupIndent(level: LogLevel, depth: number): string {
   if (depth === 0) {
     return "";
   }
 
-  const levelPadding = " ".repeat(MAX_LEVEL_LABEL_LENGTH - levelLabelLength(level));
+  const levelLabelLength = level.length + 2; // E.g. `[warning]`
+  const levelPadding = " ".repeat(MAX_LEVEL_LABEL_LENGTH - levelLabelLength);
   return `${levelPadding}${GROUP_INDENT.repeat(depth)}`;
 }
 
@@ -69,7 +55,7 @@ class ExtensionLogger {
   }
 
   warn(...messages: unknown[]): void {
-    const message = this.format("warn", ...messages);
+    const message = this.format("warning", ...messages);
     this.logForCI(message);
     this.channel.warn(message);
   }

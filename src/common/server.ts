@@ -63,7 +63,9 @@ function executeFile(file: string, args: string[] = []): Promise<string> {
 }
 
 export type BinaryResolution = {
+  /** The path to the `ty` binary. */
   path: string;
+  /** Whether resolving the `ty` binary depends on the active Python interpreter. */
   dependsOnActiveInterpreter: boolean;
 };
 
@@ -102,7 +104,7 @@ export async function findBinaryPath(
         return { path, dependsOnActiveInterpreter: false };
       }
     }
-    logger.info(`Could not find a ty executable from 'ty.path': '${settings.path.join(", ")}'`);
+    logger.warn(`Could not find a ty executable from 'ty.path': '${settings.path.join(", ")}'`);
   }
 
   if (settings.importStrategy === "useBundled") {
@@ -137,8 +139,7 @@ export async function findBinaryPath(
     }
 
     if (interpreter == null) {
-      // The user didn't explicitly configure `.interpreter`. Try to find the
-      // Python executable by using the workspace's Python environment.
+      // Use the Python interpreter from the active environment.
       logger.info(`Resolving active Python environment for workspace: '${settings.cwd.uri}'`);
       dependsOnActiveInterpreter = true;
 
@@ -188,7 +189,7 @@ export async function findBinaryPath(
     }
   }
 
-  if (tyBinaryPath && tyBinaryPath.length > 0) {
+  if (tyBinaryPath != null && tyBinaryPath.length > 0) {
     // First choice: the executable found by the script.
     logger.info(`Resolved ty executable from Python environment: '${tyBinaryPath}'`);
     return {
@@ -252,7 +253,6 @@ async function createServer(
   return {
     client: new LanguageClient(serverId, serverName, serverOptions, clientOptions),
     binaryResolution,
-    activeEnvironmentPythonExecutable: activeEnvironment?.executable ?? null,
     middleware,
   };
 }
@@ -260,7 +260,6 @@ async function createServer(
 export type ServerState = {
   client: LanguageClient;
   binaryResolution: BinaryResolution;
-  activeEnvironmentPythonExecutable: string | null;
   middleware: TyMiddleware;
 };
 

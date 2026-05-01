@@ -23,7 +23,7 @@ export interface EnvironmentProvider {
   initialize(disposables: Disposable[]): Promise<void>;
 
   /**
-   * Resolves the Python Interpreter, given a path to a Python executable or virtual environment folder,
+   * Resolves the Python Interpreter, given a path to a Python executable or virtual environment folder.
    */
   resolveInterpreter(path: string): Promise<PythonEnvironmentDetails | null>;
 
@@ -125,7 +125,7 @@ class PythonExtension implements EnvironmentProvider {
   }
 }
 
-const pythonExtension = cached(PythonExtension.tryActivate);
+const pythonExtension = lazyInit(PythonExtension.tryActivate);
 
 /**
  * Activates the Python Extension, if available.
@@ -137,6 +137,16 @@ async function getPythonExtension(): Promise<PythonExtension | null> {
 
 class PythonEnvironmentExtension implements EnvironmentProvider {
   #extension: PythonEnvironmentApi;
+  /**
+   * The Python Environments extension is extremelly trigger happy when it
+   * comes to firing environment changed events. Firing `onDidChangeActivePythonEnvironmentEvent` has
+   * a significant cost because we use it to restart the server, if the root environment changed.
+   *
+   * To avoid unnecessary restarts, we keep track of the active environments per scope
+   * and only fire the event when the active environment (reduced to the properties we care about)
+   * changed. The event always triggers for environments that we've never seen before.
+   */
+  #activeEnvironments = createActiveEnvironmentCache();
 
   private constructor(extension: PythonEnvironmentApi) {
     this.#extension = extension;
@@ -169,41 +179,34 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
   async initialize(disposables: Disposable[]): Promise<void> {
     logger.info("Using Python Environments extension for Python environment detection");
 
-    // The Python Environments extension can emit an initial root-scope event for
-    // the same environment we just read. Filter it here so provider startup noise
-    // does not reach the extension-level restart logic.
-    let initial = await this.getActiveEnvironment(undefined);
+    await this.getActiveEnvironment(undefined);
 
     disposables.push(
       this.#extension.onDidChangeEnvironment((e) => {
         logger.debug(`Python Environments didChangeEnvironment: ${JSON.stringify(e, null, 2)}`);
 
-        const newExecutable = e.new?.execInfo.run.executable;
-        const oldExecutable = e.old?.execInfo.run.executable;
+        const uri = e.uri;
+        const environment = e.new == null ? null : this.toEnvironmentDetails(e.new);
+        const previousEnvironment = e.old == null ? null : this.toEnvironmentDetails(e.old);
 
-        if (oldExecutable != null && oldExecutable === newExecutable) {
+        if (areEnvironmentsEqual(previousEnvironment, environment)) {
+          this.#activeEnvironments.remember(uri, environment);
           logger.debug(
-            `Ignoring Python Environments change event because the executable is unchanged: '${newExecutable}'`,
+            `Ignoring Python Environments change event because the active environment is unchanged for '${uri ?? "workspace"}'.`,
           );
           return;
         }
 
-        // If this is the first event, only emit it if the environment is different from the one we just resolved
-        // The Python Environments extension can emit an initial change event for
-        // the same environment that we resolved before registering this handler.
-        if (initial != null && e.uri == null && initial.executable === newExecutable) {
-          logger.info(
-            `Ignoring initial Python environment change event for the workspace root: '${newExecutable}'`,
+        if (!this.#activeEnvironments.record(uri, environment)) {
+          logger.debug(
+            `Ignoring Python Environments change event because the active environment is unchanged for '${uri ?? "workspace"}'.`,
           );
-          initial = null;
           return;
         }
-
-        initial = null;
 
         onDidChangeActivePythonEnvironmentEvent.fire({
-          path: newExecutable,
-          uri: e.uri,
+          path: environment?.executable ?? undefined,
+          uri,
         });
       }),
     );
@@ -216,23 +219,23 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
       return null;
     }
 
-    if (environment.error != null) {
-      logger.warn(
-        `Ignoring environment '${environment.environmentPath}' with error: ${environment.error}`,
-      );
-      return null;
-    }
-
-    return PythonEnvironmentExtension.toEnvironmentDetails(environment);
+    return this.toEnvironmentDetails(environment);
   }
 
   async getActiveEnvironment(uri?: Uri): Promise<PythonEnvironmentDetails | null> {
     const environment = await this.#extension.getEnvironment(uri);
+    const details = environment == null ? null : this.toEnvironmentDetails(environment);
 
-    if (environment == null) {
-      return null;
+    this.#activeEnvironments.remember(uri, details);
+
+    if (details != null) {
+      logger.debug(`Resolved Python environment: '${details.sysPrefix}'`);
     }
 
+    return details;
+  }
+
+  private toEnvironmentDetails(environment: PythonEnvironment): PythonEnvironmentDetails | null {
     if (environment.error) {
       logger.warn(
         `Ignoring environment '${environment.environmentPath}' with errors: ${environment.error}`,
@@ -240,12 +243,6 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
       return null;
     }
 
-    logger.debug(`Resolved Python environment: '${environment.environmentPath}'`);
-
-    return PythonEnvironmentExtension.toEnvironmentDetails(environment);
-  }
-
-  private static toEnvironmentDetails(environment: PythonEnvironment): PythonEnvironmentDetails {
     return {
       executable: environment.execInfo.run.executable,
       sysPrefix: environment.sysPrefix,
@@ -280,14 +277,84 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
   }
 }
 
-const pythonEnvironmentExtension = cached(PythonEnvironmentExtension.tryActivate);
+function createActiveEnvironmentCache() {
+  const environments = new Map<string | symbol, string>();
+  const WORKSPACE_KEY = Symbol("workspace");
+
+  function scopeKey(uri: Uri | undefined): string | symbol {
+    return uri?.toString() ?? WORKSPACE_KEY;
+  }
+
+  return {
+    remember(uri: Uri | undefined, environment: PythonEnvironmentDetails | null): void {
+      environments.set(scopeKey(uri), environmentKey(environment));
+    },
+
+    /**
+     * Records the active environment for the given scope and returns wheter it changed compared to the previously recorded environment.
+     */
+    record(uri: Uri | undefined, environment: PythonEnvironmentDetails | null): boolean {
+      const cacheKey = scopeKey(uri);
+      const cachedEnvironment = environments.get(cacheKey);
+      const currentEnvironmentKey = environmentKey(environment);
+
+      const unchanged = cachedEnvironment === currentEnvironmentKey;
+
+      environments.set(cacheKey, currentEnvironmentKey);
+
+      return !unchanged;
+    },
+  };
+}
+
+/**
+ * Deep equality check for two Python environments (thanks JS for having no built-in deep equality check).
+ */
+function areEnvironmentsEqual(
+  left: PythonEnvironmentDetails | null,
+  right: PythonEnvironmentDetails | null,
+): boolean {
+  return environmentKey(left) === environmentKey(right);
+}
+
+function environmentKey(environment: PythonEnvironmentDetails | null): string {
+  if (environment == null) {
+    return "null";
+  }
+
+  const { executable, sysPrefix, environment: environmentInfo, version } = environment;
+
+  return JSON.stringify({
+    executable,
+    sysPrefix,
+    environment:
+      environmentInfo == null
+        ? null
+        : ({
+            displayName: environmentInfo.displayName,
+            environmentPath: environmentInfo.environmentPath.toString(),
+            type: environmentInfo.type,
+          } satisfies Record<keyof NonNullable<PythonEnvironmentDetails["environment"]>, unknown>),
+    version:
+      version == null
+        ? null
+        : ({
+            major: version.major,
+            minor: version.minor,
+            patch: version.patch,
+            sysVersion: version.sysVersion,
+          } satisfies Record<keyof NonNullable<PythonEnvironmentDetails["version"]>, unknown>),
+  } satisfies Record<keyof PythonEnvironmentDetails, unknown>);
+}
+
+const pythonEnvironmentExtension = lazyInit(PythonEnvironmentExtension.tryActivate);
 
 async function getPythonEnvironmentExtension(): Promise<PythonEnvironmentExtension | null> {
   return pythonEnvironmentExtension.get();
 }
 
 export interface PythonEnvironmentDetails {
-  /// The path to the Python executable.
+  /** The path to the Python executable. */
   executable: string | null;
 
   sysPrefix: string;
@@ -304,7 +371,7 @@ export interface PythonEnvironmentDetails {
     type: string | null;
   } | null;
 
-  /// The Python version
+  /** The Python version */
   version: {
     major: number;
     minor: number;
@@ -335,12 +402,13 @@ export function checkInterpreterVersion(resolved: PythonEnvironmentDetails): boo
 
 const unavailable = Symbol("unavailable");
 /**
- * Creates a value exactly once and then caches it.
+ * The value gets initialized when calling `get` the first time.
  *
- * The `factory` is called exactly once. It can return `null`
- * to signal that creating the value failed (e.g. because it isn't available).
+ * The factory can indicate that creating the value failed by returning `null`.
+ * In that case, the `get` method will return `null` on subsequent calls without calling the factory again.
+ * This prevents repeatedly trying to create a value that cannot be created (e.g., because a required extension is not available).
  */
-function cached<T>(factory: () => Promise<T | null>): { get(): Promise<T | null> } {
+function lazyInit<T>(factory: () => Promise<T | null>): { get(): Promise<T | null> } {
   let cache: T | null | typeof unavailable = null;
 
   return {
