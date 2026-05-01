@@ -1,11 +1,42 @@
 import * as util from "node:util";
 import * as vscode from "vscode";
 
+const GROUP_INDENT = "  ";
+const MAX_LEVEL_LABEL_LENGTH = "[warning]".length;
+
+type LogLevel = "error" | "warn" | "info" | "debug" | "trace";
+
+function levelLabelLength(level: LogLevel): number {
+  switch (level) {
+    case "error":
+      return "[error]".length;
+    case "warn":
+      return "[warning]".length;
+    case "info":
+      return "[info]".length;
+    case "debug":
+      return "[debug]".length;
+    case "trace":
+      return "[trace]".length;
+  }
+}
+
+function groupIndent(level: LogLevel, depth: number): string {
+  if (depth === 0) {
+    return "";
+  }
+
+  const levelPadding = " ".repeat(MAX_LEVEL_LABEL_LENGTH - levelLabelLength(level));
+  return `${levelPadding}${GROUP_INDENT.repeat(depth)}`;
+}
+
 class ExtensionLogger {
   /**
    * The output channel used to log messages for the extension.
    */
   readonly channel = vscode.window.createOutputChannel("ty", { log: true });
+
+  private groupDepth = 0;
 
   /**
    * Whether the extension is running in a CI environment.
@@ -15,37 +46,67 @@ class ExtensionLogger {
   /**
    * Logs messages to the console if the extension is running in a CI environment.
    */
-  private logForCI(...messages: unknown[]): void {
+  private logForCI(message: string): void {
     if (this.isCI) {
       // eslint-disable-next-line no-console
-      console.log(...messages);
+      console.log(message);
     }
   }
 
+  private format(level: LogLevel, ...messages: unknown[]): string {
+    const message = util.format(...messages);
+    if (this.groupDepth === 0) {
+      return message;
+    }
+
+    return indentMessage(groupIndent(level, this.groupDepth), message);
+  }
+
   error(...messages: unknown[]): void {
-    this.logForCI(...messages);
-    this.channel.error(util.format(...messages));
+    const message = this.format("error", ...messages);
+    this.logForCI(message);
+    this.channel.error(message);
   }
 
   warn(...messages: unknown[]): void {
-    this.logForCI(...messages);
-    this.channel.warn(util.format(...messages));
+    const message = this.format("warn", ...messages);
+    this.logForCI(message);
+    this.channel.warn(message);
   }
 
   info(...messages: unknown[]): void {
-    this.logForCI(...messages);
-    this.channel.info(util.format(...messages));
+    const message = this.format("info", ...messages);
+    this.logForCI(message);
+    this.channel.info(message);
   }
 
   debug(...messages: unknown[]): void {
-    this.logForCI(...messages);
-    this.channel.debug(util.format(...messages));
+    const message = this.format("debug", ...messages);
+    this.logForCI(message);
+    this.channel.debug(message);
   }
 
   trace(...messages: unknown[]): void {
-    this.logForCI(...messages);
-    this.channel.trace(util.format(...messages));
+    const message = this.format("trace", ...messages);
+    this.logForCI(message);
+    this.channel.trace(message);
   }
+
+  group(...messages: unknown[]): void {
+    this.info(...messages);
+    this.groupDepth += 1;
+  }
+
+  groupEnd(): void {
+    this.groupDepth = Math.max(0, this.groupDepth - 1);
+  }
+}
+
+function indentMessage(indent: string, message: string): string {
+  return message
+    .split(/\r?\n/)
+    .map((line) => `${indent}${line}`)
+    .join("\n");
 }
 
 /**

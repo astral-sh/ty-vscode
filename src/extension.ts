@@ -106,73 +106,99 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     await restartPromise;
   };
 
+  let activeEnvironmentChangePromise = Promise.resolve();
+  const enqueueActiveEnvironmentChange = (task: () => Promise<void>) => {
+    const run = async () => {
+      try {
+        await task();
+      } catch (error) {
+        logger.error(`Failed to handle Python environment change: ${error}`);
+      }
+    };
+    const current = activeEnvironmentChangePromise.then(run, run);
+    activeEnvironmentChangePromise = current.then(
+      () => undefined,
+      () => undefined,
+    );
+    return current;
+  };
+
   context.subscriptions.push(
     onDidChangeActivePythonEnvironment(async (e: OnDidChangeActivePythonEnvironmentEventArgs) => {
-      const interpreter = e.path ?? "<unknown>";
+      await enqueueActiveEnvironmentChange(async () => {
+        const interpreter = e.path ?? "<unknown>";
 
-      const projectRoot = await getProjectRoot();
+        const projectRoot = await getProjectRoot();
 
-      if (e.uri != null && e.uri.toString() !== projectRoot.uri.toString()) {
-        logger.debug(
-          `Skip scoped Python interpreter for '${e.uri}'; workspace root is '${projectRoot.uri}'.`,
-        );
-        return;
-      }
+        if (e.uri != null && e.uri.toString() !== projectRoot.uri.toString()) {
+          logger.debug(
+            `Skip scoped Python interpreter for '${e.uri}'; workspace root is '${projectRoot.uri}'.`,
+          );
+          return;
+        }
 
-      logger.info(`Selected Python interpreter for workspace changed to '${interpreter}'.`);
+        logger.info(`Selected Python interpreter for workspace changed to '${interpreter}'.`);
 
-      if (restartPromise != null) {
-        logger.debug(
-          `${serverName} restart is already in progress; waiting before checking the Python interpreter change.`,
-        );
-        await restartPromise;
-      }
+        if (restartPromise != null) {
+          logger.debug(
+            `${serverName} restart is already in progress; waiting before checking the Python interpreter change.`,
+          );
+          await restartPromise;
+        }
 
-      if (serverState == null) {
-        logger.info(
-          `Unable to determine the current ${serverName} executable; restarting ${serverName}.`,
-        );
-        await requestRestart();
-        return;
-      }
-
-      if (serverState.binaryResolution.dependsOnActiveInterpreter) {
-        const settings = await getExtensionSettings(serverId, projectRoot);
-        const activeEnvironment =
-          (await environmentProvider?.getActiveEnvironment(projectRoot.uri)) ?? null;
-        const nextBinaryResolution = await findBinaryPath(
-          settings,
-          environmentProvider,
-          activeEnvironment,
-        );
-
-        if (nextBinaryResolution.path !== serverState.binaryResolution.path) {
+        if (serverState == null) {
           logger.info(
-            `Resolved ty executable changed from '${serverState.binaryResolution.path}' to '${nextBinaryResolution.path}'; restarting ${serverName}.`,
+            `Unable to determine the current ${serverName} executable; restarting ${serverName}.`,
           );
           await requestRestart();
           return;
         }
-      }
 
-      if (e.path != null && e.path === serverState.activeEnvironmentPythonExecutable) {
-        logger.info(
-          `Skipping ${serverName} restart because the active Python environment is unchanged: '${e.path}'.`,
-        );
-        return;
-      }
+        if (e.path != null && e.path === serverState.activeEnvironmentPythonExecutable) {
+          logger.info(
+            `Skipping ${serverName} restart because the active Python environment is unchanged: '${e.path}'.`,
+          );
+          return;
+        }
 
-      if (serverState.middleware.isDidChangeConfigurationRegistered()) {
-        logger.debug(
-          `Active Python environment for '${e.uri}' changed; sending didChangeConfiguration notification to the ty server.`,
-        );
-        serverState.activeEnvironmentPythonExecutable = e.path ?? null;
-        serverState.client.sendNotification(DidChangeConfigurationNotification.type, undefined);
-        return;
-      }
+        if (serverState.binaryResolution.dependsOnActiveInterpreter) {
+          const settings = await getExtensionSettings(serverId, projectRoot);
+          logger.group("Checking whether the active Python environment changes the ty executable.");
+          let nextBinaryResolution;
 
-      logger.info(`Restarting ${serverName} because the active Python environment changed.`);
-      await requestRestart();
+          try {
+            const activeEnvironment =
+              (await environmentProvider?.getActiveEnvironment(projectRoot.uri)) ?? null;
+            nextBinaryResolution = await findBinaryPath(
+              settings,
+              environmentProvider,
+              activeEnvironment,
+            );
+          } finally {
+            logger.groupEnd();
+          }
+
+          if (nextBinaryResolution.path !== serverState.binaryResolution.path) {
+            logger.info(
+              `Resolved ty executable changed from '${serverState.binaryResolution.path}' to '${nextBinaryResolution.path}'; restarting ${serverName}.`,
+            );
+            await requestRestart();
+            return;
+          }
+        }
+
+        if (serverState.middleware.isDidChangeConfigurationRegistered()) {
+          logger.debug(
+            `Active Python environment for '${e.uri}' changed; sending didChangeConfiguration notification to the ty server.`,
+          );
+          serverState.activeEnvironmentPythonExecutable = e.path ?? null;
+          serverState.client.sendNotification(DidChangeConfigurationNotification.type, undefined);
+          return;
+        }
+
+        logger.info(`Restarting ${serverName} because the active Python environment changed.`);
+        await requestRestart();
+      });
     }),
 
     onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {

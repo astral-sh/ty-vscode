@@ -161,7 +161,9 @@ export async function findBinaryPath(
     } else {
       logger.info(`Resolved Python executable for ty lookup: '${interpreter.executable}'`);
 
-      if (checkInterpreterVersion(interpreter)) {
+      const isSupportedPythonVersion = checkInterpreterVersion(interpreter);
+
+      if (isSupportedPythonVersion) {
         try {
           const stdout = await executeFile(interpreter.executable, [FIND_BINARY_SCRIPT_PATH]);
           tyBinaryPath = stdout.trim();
@@ -178,6 +180,10 @@ export async function findBinaryPath(
             });
           logger.error(`Error while trying to find the ty binary: ${err}`);
         }
+      } else if (isSupportedPythonVersion === false) {
+        logger.warn(
+          "Skipping lookup of the ty executable in the Python environment because the selected Python version is unsupported.",
+        );
       }
     }
   }
