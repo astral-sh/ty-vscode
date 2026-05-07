@@ -159,7 +159,7 @@
           "markdownDescription": "Controls the log level of the language server.",
           "enum": [
             "error",
-            "warning",
+            "warn",
             "info",
             "debug",
             "trace"
