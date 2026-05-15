@@ -4,7 +4,7 @@ import {
   PythonExtension as PythonExtensionApi,
   type ResolvedEnvironment,
 } from "@vscode/python-extension";
-import { PythonEnvironmentApi, PythonEnvironment } from "@vscode/python-environments";
+import type { PythonEnvironmentApi, PythonEnvironment } from "@vscode/python-environments";
 
 const onDidChangeActivePythonEnvironmentEvent =
   new EventEmitter<OnDidChangeActivePythonEnvironmentEventArgs>();
@@ -278,7 +278,7 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
 }
 
 function createActiveEnvironmentCache() {
-  const environments = new Map<string | symbol, string>();
+  const environments = new Map<string | symbol, string | null>();
   const WORKSPACE_KEY = Symbol("workspace");
 
   function scopeKey(uri: Uri | undefined): string | symbol {
@@ -317,9 +317,9 @@ function areEnvironmentsEqual(
   return environmentKey(left) === environmentKey(right);
 }
 
-function environmentKey(environment: PythonEnvironmentDetails | null): string {
+function environmentKey(environment: PythonEnvironmentDetails | null): string | null {
   if (environment == null) {
-    return "null";
+    return null;
   }
 
   const { executable, sysPrefix, environment: environmentInfo, version } = environment;
@@ -330,20 +330,20 @@ function environmentKey(environment: PythonEnvironmentDetails | null): string {
     environment:
       environmentInfo == null
         ? null
-        : ({
+        : {
             displayName: environmentInfo.displayName,
             environmentPath: environmentInfo.environmentPath.toString(),
             type: environmentInfo.type,
-          } satisfies Record<keyof NonNullable<PythonEnvironmentDetails["environment"]>, unknown>),
+          },
     version:
       version == null
         ? null
-        : ({
+        : {
             major: version.major,
             minor: version.minor,
             patch: version.patch,
             sysVersion: version.sysVersion,
-          } satisfies Record<keyof NonNullable<PythonEnvironmentDetails["version"]>, unknown>),
+          },
   } satisfies Record<keyof PythonEnvironmentDetails, unknown>);
 }
 

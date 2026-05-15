@@ -228,6 +228,7 @@
     "@types/node": "^24.0.0",
     "@types/vscode": "1.75.0",
     "@types/which": "^3.0.4",
+    "@vscode/python-environments": "^1.0.0",
     "@vscode/vsce": "^3.4.2",
     "eslint": "^9.28.0",
     "eslint-plugin-import": "^2.31.0",
