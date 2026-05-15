@@ -146,13 +146,10 @@
           "type": "boolean"
         },
         "ty.interpreter": {
-          "default": [],
+          "default": null,
           "markdownDescription": "Path to a Python interpreter to use to find the `ty` executable.",
           "scope": "window",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "ty.logLevel": {
           "default": null,
@@ -231,6 +228,7 @@
     "@types/node": "^24.0.0",
     "@types/vscode": "1.75.0",
     "@types/which": "^3.0.4",
+    "@vscode/python-environments": "^1.0.0",
     "@vscode/vsce": "^3.4.2",
     "eslint": "^9.28.0",
     "eslint-plugin-import": "^2.31.0",

@@ -5,7 +5,6 @@ import type {
   WorkspaceFolder,
 } from "vscode";
 import * as vscode from "vscode";
-import { getInterpreterDetails } from "./python";
 import { getConfiguration, getWorkspaceFolders } from "./vscodeapi";
 import { logger } from "./logger";
 
@@ -20,9 +19,9 @@ export interface InitializationOptions {
 }
 
 export interface ExtensionSettings {
-  cwd: string;
+  cwd: WorkspaceFolder;
   path: string[];
-  interpreter: string[];
+  interpreter: string | null;
   importStrategy: ImportStrategy;
 }
 
@@ -74,9 +73,20 @@ export function getInitializationOptions(namespace: string): InitializationOptio
   };
 }
 
-export function getInterpreterFromSetting(namespace: string, scope?: ConfigurationScope) {
+function getInterpreterFromSetting(namespace: string, scope?: ConfigurationScope): string | null {
   const config = getConfiguration(namespace, scope);
-  return config.get<string[]>("interpreter");
+  const interpreter = config.get<unknown>("interpreter") ?? null;
+
+  if (typeof interpreter === "string" || interpreter == null) {
+    return interpreter;
+  }
+
+  if (Array.isArray(interpreter)) {
+    const [first] = interpreter;
+    return typeof first === "string" ? first : null;
+  }
+
+  return null;
 }
 
 export async function getExtensionSettings(
@@ -85,17 +95,13 @@ export async function getExtensionSettings(
 ): Promise<ExtensionSettings> {
   const config = getConfiguration(namespace, workspace.uri);
 
-  let interpreter: string[] = getInterpreterFromSetting(namespace, workspace) ?? [];
-  if (interpreter.length === 0) {
-    if (vscode.workspace.isTrusted) {
-      interpreter = (await getInterpreterDetails(workspace)).path ?? [];
-    }
-  } else {
+  let interpreter = getInterpreterFromSetting(namespace, workspace);
+  if (interpreter != null) {
     interpreter = resolveVariables(interpreter, workspace);
   }
 
   return {
-    cwd: workspace.uri.fsPath,
+    cwd: workspace,
     path: resolveVariables(config.get<string[]>("path") ?? [], workspace),
     interpreter,
     importStrategy: config.get<ImportStrategy>("importStrategy") ?? "fromEnvironment",
