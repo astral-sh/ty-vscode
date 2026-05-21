@@ -173,6 +173,15 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
       }
     }
 
+    // The Python Environments extension can return no API when
+    // `python.useEnvironmentsExtension` is false.
+    if (extension.exports == null) {
+      logger.info(
+        "The Python Environments extension is disabled by 'python.useEnvironmentsExtension'.",
+      );
+      return null;
+    }
+
     return new PythonEnvironmentExtension(extension.exports as PythonEnvironmentApi);
   }
 
