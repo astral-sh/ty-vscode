@@ -145,6 +145,12 @@
           "scope": "resource",
           "type": "boolean"
         },
+        "ty.completions.completeFunctionParentheses": {
+          "default": false,
+          "markdownDescription": "Add parentheses to function completions.",
+          "scope": "resource",
+          "type": "boolean"
+        },
         "ty.interpreter": {
           "default": null,
           "markdownDescription": "Path to a Python interpreter to use to find the `ty` executable.",
