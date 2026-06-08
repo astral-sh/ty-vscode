@@ -236,7 +236,7 @@
     "@types/which": "^3.0.4",
     "@vscode/python-environments": "^1.0.0",
     "@vscode/vsce": "^3.4.2",
-    "eslint": "^9.28.0",
+    "eslint": "^10.0.0",
     "eslint-plugin-import": "^2.31.0",
     "glob": "^13.0.0",
     "ovsx": "^0.10.3",
