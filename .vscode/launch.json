@@ -13,6 +13,23 @@
         "group": "",
         "order": 1
       }
+    },
+    {
+      "name": "Debug Extension against reST docstrings",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--new-window",
+        "/private/tmp/ty-rest-docstring-compare-20260614/after-wnl"
+      ],
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "preLaunchTask": "npm: watch",
+      "presentation": {
+        "hidden": false,
+        "group": "",
+        "order": 2
+      }
     }
   ]
 }

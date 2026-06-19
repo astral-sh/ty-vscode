@@ -4,6 +4,7 @@ import { platform } from "node:os";
 import * as vscode from "vscode";
 import { type Disposable, l10n, LanguageStatusSeverity, type OutputChannel } from "vscode";
 import {
+  type InitializeParams,
   type LanguageClientOptions,
   MessageType,
   ShowMessageNotification,
@@ -246,15 +247,35 @@ async function createServer(
     outputChannel,
     traceOutputChannel,
     revealOutputChannelOn: RevealOutputChannelOn.Never,
+    markdown: { supportHtml: true },
     initializationOptions,
     middleware,
   };
 
   return {
-    client: new LanguageClient(serverId, serverName, serverOptions, clientOptions),
+    client: new TyLanguageClient(serverId, serverName, serverOptions, clientOptions),
     binaryResolution,
     middleware,
   };
+}
+
+class TyLanguageClient extends LanguageClient {
+  protected fillInitializeParams(params: InitializeParams): void {
+    super.fillInitializeParams(params);
+
+    const experimental = params.capabilities.experimental ?? {};
+    params.capabilities.experimental = {
+      ...experimental,
+      ty: {
+        ...experimental.ty,
+        markdown: {
+          ...experimental.ty?.markdown,
+          // Opt into ty's bare `<ul>` Markdown indentation convention.
+          bareUlIndentation: true,
+        },
+      },
+    };
+  }
 }
 
 export type ServerState = {
