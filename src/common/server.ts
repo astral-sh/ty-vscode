@@ -27,7 +27,8 @@ import { getDocumentSelector } from "./utilities";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 import which = require("which");
-import { createTyMiddleware, type TyMiddleware } from "../client";
+import { createTyMiddleware, FullDiagnosticOutputFeature, type TyMiddleware } from "../client";
+import type { FullDiagnosticProvider } from "./diagnostics";
 import {
   checkInterpreterVersion,
   PythonEnvironmentDetails as PythonEnvironmentDetails,
@@ -250,8 +251,11 @@ async function createServer(
     middleware,
   };
 
+  const client = new LanguageClient(serverId, serverName, serverOptions, clientOptions);
+  client.registerFeature(new FullDiagnosticOutputFeature());
+
   return {
-    client: new LanguageClient(serverId, serverName, serverOptions, clientOptions),
+    client,
     binaryResolution,
     middleware,
   };
@@ -272,13 +276,19 @@ export async function startServer(
   outputChannel: OutputChannel,
   traceOutputChannel: OutputChannel,
   environmentProvider: EnvironmentProvider | null,
+  fullDiagnosticProvider: FullDiagnosticProvider,
 ): Promise<ServerState | null> {
   updateStatus(undefined, LanguageStatusSeverity.Information, true);
 
   const initializationOptions = getInitializationOptions(serverId);
   logger.info(`Initialization options: ${JSON.stringify(initializationOptions, null, 4)}`);
 
-  const middleware = createTyMiddleware(environmentProvider);
+  const clientRef: { current?: LanguageClient } = {};
+  const middleware = createTyMiddleware(
+    environmentProvider,
+    fullDiagnosticProvider,
+    () => clientRef.current,
+  );
 
   const server = await createServer(
     settings,
@@ -290,6 +300,7 @@ export async function startServer(
     environmentProvider,
     middleware,
   );
+  clientRef.current = server.client;
   const newLSClient = server.client;
   logger.info("Starting ty language server.");
 

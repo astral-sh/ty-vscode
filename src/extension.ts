@@ -18,6 +18,7 @@ import {
   registerCommand,
 } from "./common/vscodeapi";
 import { createDebugInformationProvider } from "./common/commands";
+import { FULL_DIAGNOSTIC_URI_SCHEME, FullDiagnosticProvider } from "./common/diagnostics";
 
 let serverState: ServerState | null = null;
 let restartQueued = false;
@@ -48,6 +49,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(traceOutputChannel);
   context.subscriptions.push(logger.channel);
 
+  const fullDiagnosticProvider = new FullDiagnosticProvider();
+  context.subscriptions.push(
+    fullDiagnosticProvider,
+    vscode.workspace.registerTextDocumentContentProvider(
+      FULL_DIAGNOSTIC_URI_SCHEME,
+      fullDiagnosticProvider,
+    ),
+  );
+
   //support for debug command.
   context.subscriptions.push(
     registerCommand(
@@ -63,6 +73,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       await stopServer(serverState.client);
       serverState = null;
     }
+    fullDiagnosticProvider.clear();
 
     const projectRoot = await getProjectRoot();
     const settings = await getExtensionSettings(serverId, projectRoot);
@@ -74,6 +85,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       outputChannel,
       traceOutputChannel,
       environmentProvider,
+      fullDiagnosticProvider,
     );
   };
 

@@ -13,6 +13,10 @@
 To run the extension, navigate to `src/extension.ts` and run (`F5`). You should see the extension output
 and the language server log messages in the debug console under "ty" and "ty Language Server" respectively.
 
+### Language server protocol extensions
+
+The ty server's experimental Language Server Protocol extensions are documented in the [`ty_server` crate](https://github.com/astral-sh/ruff/blob/main/crates/ty_server/README.md#lsp-extensions).
+
 ### Using a custom version of ty
 
 - Clone [ty](https://github.com/astral-sh/ty) to, e.g., `/home/ferris/ty`.
