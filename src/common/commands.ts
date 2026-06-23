@@ -1,7 +1,63 @@
 import * as vscode from "vscode";
 import { ExecuteCommandRequest, LanguageClient } from "vscode-languageclient/node";
+import { logger } from "./logger";
 
 const ISSUE_TRACKER = "https://github.com/astral-sh/ty/issues";
+
+interface RunTestArgs {
+  cwd: string;
+  program: string;
+  arguments: string[];
+  filePath: string;
+  testTarget: string;
+}
+
+/**
+ * Creates a test runner for the `ty.RunTest` command.
+ *
+ * This will run the test in a new terminal.
+ */
+export function createRunTestProvider() {
+  return async (runTest: RunTestArgs | undefined) => {
+    if (runTest == null) {
+      logger.error("Failed to run test: missing 'RunTest' arguments");
+      vscode.window
+        .showErrorMessage("Failed to run test: missing required arguments.", "Show Logs")
+        .then((selection) => {
+          if (selection) {
+            logger.channel.show();
+          }
+        });
+      return;
+    }
+
+    const { cwd, program, arguments: programArgs, testTarget } = runTest;
+    const task = new vscode.Task(
+      { type: "shell" },
+      vscode.TaskScope.Workspace,
+      `${testTarget}`,
+      `ty`,
+      new vscode.ShellExecution(program, programArgs, { cwd }),
+    );
+    task.presentationOptions = {
+      reveal: vscode.TaskRevealKind.Always,
+      panel: vscode.TaskPanelKind.Dedicated,
+      clear: true,
+    };
+    const execution = await vscode.tasks.executeTask(task);
+    await new Promise<void>((resolve) => {
+      const listener = vscode.tasks.onDidEndTaskProcess((e) => {
+        if (e.execution === execution) {
+          listener.dispose();
+          if (e.exitCode !== 0) {
+            logger.error(`Running test failed: ${program} ${programArgs.join(" ")}`);
+          }
+          resolve();
+        }
+      });
+    });
+  };
+}
 
 /**
  * Creates a debug information provider for the `ty.printDebugInformation` command.
