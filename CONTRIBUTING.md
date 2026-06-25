@@ -15,7 +15,7 @@ and the language server log messages in the debug console under "ty" and "ty Lan
 
 ### Language server protocol extensions
 
-The ty server's experimental Language Server Protocol extensions are documented in the [`ty_server` crate](https://github.com/astral-sh/ruff/blob/main/crates/ty_server/README.md#lsp-extensions).
+The ty server's experimental Language Server Protocol extensions are documented in [ty's documentation](https://docs.astral.sh/ty/features/language-server/).
 
 ### Using a custom version of ty
 
