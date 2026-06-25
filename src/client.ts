@@ -49,8 +49,10 @@ export class FullDiagnosticOutputFeature implements StaticFeature {
   fillClientCapabilities(capabilities: ClientCapabilities): void {
     capabilities.experimental = {
       ...capabilities.experimental,
-      // Protocol: https://github.com/astral-sh/ruff/blob/main/crates/ty_server/README.md#full-diagnostic-output
+      // Protocol: https://docs.astral.sh/ty/features/language-server/#full-diagnostic-output
       fullDiagnosticOutput: true,
+      // Protocol: https://docs.astral.sh/ty/features/language-server/#colored-diagnostic-output
+      colorDiagnosticOutput: true,
     };
   }
 

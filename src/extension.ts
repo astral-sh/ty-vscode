@@ -50,12 +50,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(logger.channel);
 
   const fullDiagnosticProvider = new FullDiagnosticProvider();
+  const decorateVisibleEditors = (document: vscode.TextDocument) => {
+    for (const editor of vscode.window.visibleTextEditors) {
+      if (editor.document === document) {
+        fullDiagnosticProvider.applyDecorations(editor);
+      }
+    }
+  };
   context.subscriptions.push(
     fullDiagnosticProvider,
     vscode.workspace.registerTextDocumentContentProvider(
       FULL_DIAGNOSTIC_URI_SCHEME,
       fullDiagnosticProvider,
     ),
+    vscode.workspace.onDidChangeTextDocument(({ document }) => decorateVisibleEditors(document)),
+    vscode.workspace.onDidOpenTextDocument(decorateVisibleEditors),
+    vscode.window.onDidChangeActiveTextEditor((editor) => {
+      if (editor != null) {
+        fullDiagnosticProvider.applyDecorations(editor);
+      }
+    }),
+    vscode.window.onDidChangeVisibleTextEditors((editors) => {
+      for (const editor of editors) {
+        fullDiagnosticProvider.applyDecorations(editor);
+      }
+    }),
   );
 
   //support for debug command.
