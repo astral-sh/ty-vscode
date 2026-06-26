@@ -1,6 +1,4 @@
-// `anser` uses TypeScript's `export =` syntax.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-import Anser = require("anser");
+import Anser from "anser";
 import * as vscode from "vscode";
 
 export const FULL_DIAGNOSTIC_URI_SCHEME = "ty-diagnostics-view";
@@ -97,14 +95,8 @@ export class FullDiagnosticProvider
   }
 
   private decorationType(style: AnsiStyle): vscode.TextEditorDecorationType | undefined {
-    const foreground = FullDiagnosticProvider.toEditorColor(
-      style.foreground,
-      style.foregroundTruecolor,
-    );
-    const background = FullDiagnosticProvider.toEditorColor(
-      style.background,
-      style.backgroundTruecolor,
-    );
+    const foreground = toEditorColor(style.foreground, style.foregroundTruecolor);
+    const background = toEditorColor(style.background, style.backgroundTruecolor);
     const bold = style.decorations.includes("bold");
     const italic = style.decorations.includes("italic");
     const underline = style.decorations.includes("underline");
@@ -127,28 +119,6 @@ export class FullDiagnosticProvider
     }
 
     return decorationType;
-  }
-
-  private static toEditorColor(
-    color: string | null,
-    truecolor: string | null,
-  ): vscode.ThemeColor | string | undefined {
-    if (color == null) {
-      return undefined;
-    }
-
-    if (color === "ansi-truecolor") {
-      return truecolor == null ? undefined : `rgb(${truecolor})`;
-    }
-
-    const paletteColor = /^ansi-palette-(\d+)$/.exec(color)?.[1];
-    if (paletteColor != null) {
-      const rgb = Anser.ansiToJson(`\x1b[38;5;${paletteColor}m`)[1]?.fg;
-      return rgb == null ? undefined : `rgb(${rgb})`;
-    }
-
-    const themeColor = ANSI_THEME_COLORS[color];
-    return themeColor == null ? undefined : new vscode.ThemeColor(themeColor);
   }
 
   updateDiagnostics(sourceUri: vscode.Uri, diagnostics: vscode.Diagnostic[]): void {
@@ -392,6 +362,7 @@ export class FullDiagnosticProvider
   }
 }
 
+const ANSI_PALETTE_COLOR = /^ansi-palette-(\d+)$/;
 const ANSI_THEME_COLORS: Readonly<Record<string, string>> = {
   "ansi-black": "terminal.ansiBlack",
   "ansi-red": "terminal.ansiRed",
@@ -410,6 +381,28 @@ const ANSI_THEME_COLORS: Readonly<Record<string, string>> = {
   "ansi-bright-cyan": "terminal.ansiBrightCyan",
   "ansi-bright-white": "terminal.ansiBrightWhite",
 };
+
+function toEditorColor(
+  color: string | null,
+  truecolor: string | null,
+): vscode.ThemeColor | string | undefined {
+  if (color == null) {
+    return undefined;
+  }
+
+  if (color === "ansi-truecolor") {
+    return truecolor == null ? undefined : `rgb(${truecolor})`;
+  }
+
+  const paletteColor = ANSI_PALETTE_COLOR.exec(color)?.[1];
+  if (paletteColor != null) {
+    const rgb = Anser.ansiToJson(`\x1b[38;5;${paletteColor}m`)[1]?.fg;
+    return rgb == null ? undefined : `rgb(${rgb})`;
+  }
+
+  const themeColor = ANSI_THEME_COLORS[color];
+  return themeColor == null ? undefined : new vscode.ThemeColor(themeColor);
+}
 
 function matchesPreparedDiagnostics(
   linkedDiagnostics: Map<string, string | undefined>,

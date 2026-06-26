@@ -51,6 +51,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const fullDiagnosticProvider = new FullDiagnosticProvider();
   const decorateVisibleEditors = (document: vscode.TextDocument) => {
+    if (document.uri.scheme !== FULL_DIAGNOSTIC_URI_SCHEME) {
+      return;
+    }
+
     for (const editor of vscode.window.visibleTextEditors) {
       if (editor.document === document) {
         fullDiagnosticProvider.applyDecorations(editor);
@@ -64,12 +68,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       fullDiagnosticProvider,
     ),
     vscode.workspace.onDidChangeTextDocument(({ document }) => decorateVisibleEditors(document)),
-    vscode.workspace.onDidOpenTextDocument(decorateVisibleEditors),
-    vscode.window.onDidChangeActiveTextEditor((editor) => {
-      if (editor != null) {
-        fullDiagnosticProvider.applyDecorations(editor);
-      }
-    }),
     vscode.window.onDidChangeVisibleTextEditors((editors) => {
       for (const editor of editors) {
         fullDiagnosticProvider.applyDecorations(editor);
