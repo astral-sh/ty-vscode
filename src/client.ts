@@ -51,8 +51,6 @@ export class FullDiagnosticOutputFeature implements StaticFeature {
       ...capabilities.experimental,
       // Protocol: https://docs.astral.sh/ty/features/language-server/#full-diagnostic-output
       fullDiagnosticOutput: true,
-      // Protocol: https://docs.astral.sh/ty/features/language-server/#colored-diagnostic-output
-      colorDiagnosticOutput: true,
     };
   }
 
