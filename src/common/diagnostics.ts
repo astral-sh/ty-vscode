@@ -1,3 +1,4 @@
+import Anser from "anser";
 import * as vscode from "vscode";
 
 export const FULL_DIAGNOSTIC_URI_SCHEME = "ty-diagnostics-view";
@@ -13,6 +14,14 @@ interface PreparedDiagnostics {
   readonly targets: Map<string, { uri: vscode.Uri; content: string }>;
 }
 
+interface AnsiStyle {
+  readonly foreground: string | null;
+  readonly background: string | null;
+  readonly foregroundTruecolor: string | null;
+  readonly backgroundTruecolor: string | null;
+  readonly decorations: readonly Anser.DecorationName[];
+}
+
 export class FullDiagnosticProvider
   implements vscode.TextDocumentContentProvider, vscode.Disposable
 {
@@ -20,6 +29,7 @@ export class FullDiagnosticProvider
   private readonly contents = new Map<string, string>();
   private readonly targetsBySource = new Map<string, Set<string>>();
   private readonly pendingDiagnostics = new Map<string, Map<string, PreparedDiagnostics>>();
+  private readonly decorationTypes = new Map<string, vscode.TextEditorDecorationType>();
   private reconciliationTimer: ReturnType<typeof setTimeout> | undefined;
   private nextReportId = 0;
   private disposed = false;
@@ -32,7 +42,83 @@ export class FullDiagnosticProvider
   }
 
   provideTextDocumentContent(uri: vscode.Uri): string {
-    return this.contents.get(uri.toString()) ?? MISSING_DIAGNOSTIC;
+    return Anser.ansiToText(this.contents.get(uri.toString()) ?? MISSING_DIAGNOSTIC);
+  }
+
+  applyDecorations(editor: vscode.TextEditor): void {
+    if (editor.document.uri.scheme !== FULL_DIAGNOSTIC_URI_SCHEME) {
+      return;
+    }
+
+    const rangesByDecoration = new Map<vscode.TextEditorDecorationType, vscode.Range[]>();
+    for (const decorationType of this.decorationTypes.values()) {
+      rangesByDecoration.set(decorationType, []);
+    }
+
+    const rendered = this.contents.get(editor.document.uri.toString()) ?? "";
+    let line = 0;
+    let character = 0;
+
+    for (const span of Anser.ansiToJson(rendered, { use_classes: true })) {
+      const style: AnsiStyle = {
+        foreground: span.fg,
+        background: span.bg,
+        foregroundTruecolor: span.fg_truecolor,
+        backgroundTruecolor: span.bg_truecolor,
+        decorations: span.decorations,
+      };
+      const decorationType = this.decorationType(style);
+      const segments = span.content.split("\n");
+
+      for (const [index, segment] of segments.entries()) {
+        if (segment.length > 0 && decorationType != null) {
+          let ranges = rangesByDecoration.get(decorationType);
+          if (ranges == null) {
+            ranges = [];
+            rangesByDecoration.set(decorationType, ranges);
+          }
+          ranges.push(new vscode.Range(line, character, line, character + segment.length));
+        }
+
+        if (index < segments.length - 1) {
+          line += 1;
+          character = 0;
+        } else {
+          character += segment.length;
+        }
+      }
+    }
+
+    for (const [decorationType, ranges] of rangesByDecoration) {
+      editor.setDecorations(decorationType, ranges);
+    }
+  }
+
+  private decorationType(style: AnsiStyle): vscode.TextEditorDecorationType | undefined {
+    const foreground = toEditorColor(style.foreground, style.foregroundTruecolor);
+    const background = toEditorColor(style.background, style.backgroundTruecolor);
+    const bold = style.decorations.includes("bold");
+    const italic = style.decorations.includes("italic");
+    const underline = style.decorations.includes("underline");
+
+    if (foreground == null && background == null && !bold && !italic && !underline) {
+      return undefined;
+    }
+
+    const key = JSON.stringify(style);
+    let decorationType = this.decorationTypes.get(key);
+    if (decorationType == null) {
+      decorationType = vscode.window.createTextEditorDecorationType({
+        color: foreground,
+        backgroundColor: background,
+        fontWeight: bold ? "bold" : undefined,
+        fontStyle: italic ? "italic" : undefined,
+        textDecoration: underline ? "underline" : undefined,
+      });
+      this.decorationTypes.set(key, decorationType);
+    }
+
+    return decorationType;
   }
 
   updateDiagnostics(sourceUri: vscode.Uri, diagnostics: vscode.Diagnostic[]): void {
@@ -269,7 +355,53 @@ export class FullDiagnosticProvider
     this.diagnosticsListener.dispose();
     this.clear();
     this.onDidChangeEmitter.dispose();
+    for (const decorationType of this.decorationTypes.values()) {
+      decorationType.dispose();
+    }
+    this.decorationTypes.clear();
   }
+}
+
+const ANSI_PALETTE_COLOR = /^ansi-palette-(\d+)$/;
+const ANSI_THEME_COLORS: Readonly<Record<string, string>> = {
+  "ansi-black": "terminal.ansiBlack",
+  "ansi-red": "terminal.ansiRed",
+  "ansi-green": "terminal.ansiGreen",
+  "ansi-yellow": "terminal.ansiYellow",
+  "ansi-blue": "terminal.ansiBlue",
+  "ansi-magenta": "terminal.ansiMagenta",
+  "ansi-cyan": "terminal.ansiCyan",
+  "ansi-white": "terminal.ansiWhite",
+  "ansi-bright-black": "terminal.ansiBrightBlack",
+  "ansi-bright-red": "terminal.ansiBrightRed",
+  "ansi-bright-green": "terminal.ansiBrightGreen",
+  "ansi-bright-yellow": "terminal.ansiBrightYellow",
+  "ansi-bright-blue": "terminal.ansiBrightBlue",
+  "ansi-bright-magenta": "terminal.ansiBrightMagenta",
+  "ansi-bright-cyan": "terminal.ansiBrightCyan",
+  "ansi-bright-white": "terminal.ansiBrightWhite",
+};
+
+function toEditorColor(
+  color: string | null,
+  truecolor: string | null,
+): vscode.ThemeColor | string | undefined {
+  if (color == null) {
+    return undefined;
+  }
+
+  if (color === "ansi-truecolor") {
+    return truecolor == null ? undefined : `rgb(${truecolor})`;
+  }
+
+  const paletteColor = ANSI_PALETTE_COLOR.exec(color)?.[1];
+  if (paletteColor != null) {
+    const rgb = Anser.ansiToJson(`\x1b[38;5;${paletteColor}m`)[1]?.fg;
+    return rgb == null ? undefined : `rgb(${rgb})`;
+  }
+
+  const themeColor = ANSI_THEME_COLORS[color];
+  return themeColor == null ? undefined : new vscode.ThemeColor(themeColor);
 }
 
 function matchesPreparedDiagnostics(
