@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import { type Disposable, type Event, EventEmitter, extensions, Uri } from "vscode";
 import { logger } from "./logger";
 import {
@@ -188,7 +189,8 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
   async initialize(disposables: Disposable[]): Promise<void> {
     logger.info("Using Python Environments extension for Python environment detection");
 
-    await this.getActiveEnvironment(undefined);
+    // Server startup resolves the project environment. Avoid a global lookup here because it can
+    // trigger full environment discovery and block extension activation.
 
     disposables.push(
       this.#extension.onDidChangeEnvironment((e) => {
@@ -287,7 +289,7 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
 }
 
 function createActiveEnvironmentCache() {
-  const environments = new Map<string | symbol, string | null>();
+  const environments = new Map<string | symbol, PythonEnvironmentDetails | null>();
   const WORKSPACE_KEY = Symbol("workspace");
 
   function scopeKey(uri: Uri | undefined): string | symbol {
@@ -296,7 +298,7 @@ function createActiveEnvironmentCache() {
 
   return {
     remember(uri: Uri | undefined, environment: PythonEnvironmentDetails | null): void {
-      environments.set(scopeKey(uri), environmentKey(environment));
+      environments.set(scopeKey(uri), environment);
     },
 
     /**
@@ -305,11 +307,9 @@ function createActiveEnvironmentCache() {
     record(uri: Uri | undefined, environment: PythonEnvironmentDetails | null): boolean {
       const cacheKey = scopeKey(uri);
       const cachedEnvironment = environments.get(cacheKey);
-      const currentEnvironmentKey = environmentKey(environment);
+      const unchanged = isDeepStrictEqual(cachedEnvironment, environment);
 
-      const unchanged = cachedEnvironment === currentEnvironmentKey;
-
-      environments.set(cacheKey, currentEnvironmentKey);
+      environments.set(cacheKey, environment);
 
       return !unchanged;
     },
@@ -323,37 +323,7 @@ function areEnvironmentsEqual(
   left: PythonEnvironmentDetails | null,
   right: PythonEnvironmentDetails | null,
 ): boolean {
-  return environmentKey(left) === environmentKey(right);
-}
-
-function environmentKey(environment: PythonEnvironmentDetails | null): string | null {
-  if (environment == null) {
-    return null;
-  }
-
-  const { executable, sysPrefix, environment: environmentInfo, version } = environment;
-
-  return JSON.stringify({
-    executable,
-    sysPrefix,
-    environment:
-      environmentInfo == null
-        ? null
-        : {
-            displayName: environmentInfo.displayName,
-            environmentPath: environmentInfo.environmentPath.toString(),
-            type: environmentInfo.type,
-          },
-    version:
-      version == null
-        ? null
-        : {
-            major: version.major,
-            minor: version.minor,
-            patch: version.patch,
-            sysVersion: version.sysVersion,
-          },
-  } satisfies Record<keyof PythonEnvironmentDetails, unknown>);
+  return isDeepStrictEqual(left, right);
 }
 
 const pythonEnvironmentExtension = lazyInit(PythonEnvironmentExtension.tryActivate);
