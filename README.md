@@ -58,6 +58,17 @@ in your [`settings.json`](https://code.visualstudio.com/docs/configure/settings#
 If you don't want to use ty for a specific workspace, [disable this extension](https://code.visualstudio.com/docs/editor/extension-marketplace#_disable-an-extension)
 in VS code.
 
+### Organize imports after auto-imports
+
+Set `ty.organizeImportsOnAutoImport` to `true` to organize imports immediately after accepting an
+auto-import completion from ty. This feature is off by default, does not activate organizer
+extensions, and is not currently supported in notebooks.
+
+The feature only runs when exactly one active extension provides an organize-imports action. If
+multiple organizers are active, disable import organization in all but the one you want ty to use.
+Otherwise, ty skips organization and records the reason in the ty output channel. This setting does
+not affect the editor's manual organize-imports command.
+
 ## Untrusted Workspace
 
 The extension supports [untrusted workspace](https://code.visualstudio.com/docs/editor/workspace-trust).

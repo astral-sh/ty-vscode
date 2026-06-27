@@ -27,7 +27,11 @@ import { getDocumentSelector } from "./utilities";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 import which = require("which");
-import { createTyMiddleware, FullDiagnosticOutputFeature, type TyMiddleware } from "../client";
+import {
+  createTyMiddleware,
+  ExperimentalClientCapabilitiesFeature,
+  type TyMiddleware,
+} from "../client";
 import type { FullDiagnosticProvider } from "./diagnostics";
 import {
   checkInterpreterVersion,
@@ -252,7 +256,7 @@ async function createServer(
   };
 
   const client = new LanguageClient(serverId, serverName, serverOptions, clientOptions);
-  client.registerFeature(new FullDiagnosticOutputFeature());
+  client.registerFeature(new ExperimentalClientCapabilitiesFeature());
 
   return {
     client,
