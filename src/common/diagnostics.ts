@@ -161,7 +161,8 @@ export class FullDiagnosticProvider
 
     diagnostics.forEach((diagnostic, index) => {
       const data = (diagnostic as unknown as { data?: Record<string, unknown> }).data;
-      if (data == null || typeof data.rendered !== "string") {
+      const originalCode = diagnostic.code;
+      if (data == null || typeof data.rendered !== "string" || originalCode == null) {
         return;
       }
       const rendered = data.rendered;
@@ -177,7 +178,6 @@ export class FullDiagnosticProvider
         query: index.toString(),
       });
       const targetKey = target.toString();
-      const originalCode = diagnostic.code;
       const originalCodeValue =
         typeof originalCode === "object" ? originalCode.value : originalCode;
       const documentationUri =
@@ -193,7 +193,7 @@ export class FullDiagnosticProvider
 
       diagnostic.code = {
         target,
-        value: originalCodeValue ?? "Click for full diagnostic",
+        value: originalCodeValue,
       };
     });
 
