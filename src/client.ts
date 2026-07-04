@@ -13,7 +13,7 @@ import {
   CancellationToken,
   DidChangeConfigurationNotification,
 } from "vscode-languageclient";
-import { Uri, workspace } from "vscode";
+import { CodeActionTriggerKind, Uri, workspace } from "vscode";
 import {
   resolveVariables,
   type InitializationOptions,
@@ -198,6 +198,20 @@ export function createTyMiddleware(
         fullDiagnosticProvider.prepareDocumentDiagnostics(uri, report.items)();
       }
       return report;
+    },
+
+    async provideCodeActions(document, range, context, token, next) {
+      const actions = await next(document, range, context, token);
+      if (context.triggerKind !== CodeActionTriggerKind.Invoke) {
+        return actions;
+      }
+
+      const fullDiagnosticActions = fullDiagnosticProvider.createCodeActions(context.diagnostics);
+      if (fullDiagnosticActions.length === 0) {
+        return actions;
+      }
+
+      return [...(actions ?? []), ...fullDiagnosticActions];
     },
 
     async provideWorkspaceDiagnostics(resultIds, token, resultReporter, next) {
