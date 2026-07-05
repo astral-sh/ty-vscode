@@ -133,6 +133,29 @@ export class FullDiagnosticProvider
     return this.preparePulledDiagnostics(sourceUri, diagnostics, "workspace");
   }
 
+  createCodeActions(diagnostics: readonly vscode.Diagnostic[]): vscode.CodeAction[] {
+    return diagnostics.flatMap((diagnostic) => {
+      const code = diagnostic.code;
+      if (
+        code == null ||
+        typeof code !== "object" ||
+        code.target.scheme !== FULL_DIAGNOSTIC_URI_SCHEME
+      ) {
+        return [];
+      }
+
+      const title = "ty: Show full diagnostic";
+      const action = new vscode.CodeAction(title, vscode.CodeActionKind.QuickFix);
+      action.diagnostics = [diagnostic];
+      action.command = {
+        command: "vscode.open",
+        title,
+        arguments: [code.target],
+      };
+      return [action];
+    });
+  }
+
   private preparePulledDiagnostics(
     sourceUri: vscode.Uri,
     diagnostics: vscode.Diagnostic[],
@@ -224,7 +247,8 @@ export class FullDiagnosticProvider
 
     diagnostics.forEach((diagnostic, index) => {
       const data = (diagnostic as unknown as { data?: Record<string, unknown> }).data;
-      if (data == null || typeof data.rendered !== "string") {
+      const originalCode = diagnostic.code;
+      if (data == null || typeof data.rendered !== "string" || originalCode == null) {
         return;
       }
       const rendered = data.rendered;
@@ -240,7 +264,8 @@ export class FullDiagnosticProvider
         query: index.toString(),
       });
       const targetKey = target.toString();
-      const originalCode = diagnostic.code;
+      const originalCodeValue =
+        typeof originalCode === "object" ? originalCode.value : originalCode;
       const documentationUri =
         typeof originalCode === "object" &&
         originalCode.target.scheme !== FULL_DIAGNOSTIC_URI_SCHEME
@@ -254,7 +279,7 @@ export class FullDiagnosticProvider
 
       diagnostic.code = {
         target,
-        value: "Click for full diagnostic",
+        value: originalCodeValue,
       };
     });
 
