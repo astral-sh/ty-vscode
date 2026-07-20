@@ -235,6 +235,7 @@
     "@types/node": "^24.0.0",
     "@types/vscode": "1.75.0",
     "@types/which": "^3.0.4",
+    "@typescript/native": "npm:typescript@^7.0.2",
     "@vscode/python-environments": "^1.0.0",
     "@vscode/vsce": "^3.4.2",
     "eslint": "^10.0.0",
@@ -244,7 +245,7 @@
     "ovsx": "^1.0.0",
     "prettier": "^3.5.3",
     "ts-loader": "^9.5.2",
-    "typescript": "^7.0.0",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.33.0",
     "webpack": "^5.99.9",
     "webpack-cli": "^7.0.0"
