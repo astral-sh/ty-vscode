@@ -17,7 +17,11 @@ import {
   onDidGrantWorkspaceTrust,
   registerCommand,
 } from "./common/vscodeapi";
-import { createDebugInformationProvider } from "./common/commands";
+import {
+  AUTO_IMPORT_COMPLETION_COMMAND,
+  createDebugInformationProvider,
+  createOrganizeImportsAfterAutoImportHandler,
+} from "./common/commands";
 import { FULL_DIAGNOSTIC_URI_SCHEME, FullDiagnosticProvider } from "./common/diagnostics";
 
 let serverState: ServerState | null = null;
@@ -75,8 +79,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
   );
 
-  //support for debug command.
+  // Register client-side commands.
   context.subscriptions.push(
+    registerCommand(
+      AUTO_IMPORT_COMPLETION_COMMAND,
+      createOrganizeImportsAfterAutoImportHandler(serverId),
+    ),
     registerCommand(
       `${serverId}.debugInformation`,
       createDebugInformationProvider(getClient, serverId, context),

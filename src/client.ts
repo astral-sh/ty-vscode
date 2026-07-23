@@ -24,7 +24,8 @@ import { EnvironmentProvider } from "./common/python";
 import { FullDiagnosticProvider } from "./common/diagnostics";
 
 // Keys that are handled by the extension and should not be sent to the server
-type ExtensionOnlyKeys = keyof InitializationOptions | keyof ExtensionSettings | "trace";
+type ExtensionOnlyKeys =
+  keyof InitializationOptions | keyof ExtensionSettings | "organizeImportsOnAutoImport" | "trace";
 
 const EXTENSION_ONLY_KEYS = {
   // InitializationOptions
@@ -38,6 +39,7 @@ const EXTENSION_ONLY_KEYS = {
   importStrategy: true,
 
   // Client-handled settings
+  organizeImportsOnAutoImport: true,
   trace: true,
 } as const satisfies Record<ExtensionOnlyKeys, true>;
 
@@ -45,12 +47,13 @@ function isExtensionOnlyKey(key: string): key is ExtensionOnlyKeys {
   return key in EXTENSION_ONLY_KEYS;
 }
 
-export class FullDiagnosticOutputFeature implements StaticFeature {
+export class ExperimentalClientCapabilitiesFeature implements StaticFeature {
   fillClientCapabilities(capabilities: ClientCapabilities): void {
     capabilities.experimental = {
       ...capabilities.experimental,
       // Protocol: https://docs.astral.sh/ty/features/language-server/#full-diagnostic-output
       fullDiagnosticOutput: true,
+      autoImportCompletionCommand: true,
     };
   }
 

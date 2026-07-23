@@ -68,6 +68,7 @@
     "vsce-package": "vsce package -o ty.vsix",
     "vscode:prepublish": "npm run package",
     "pretest": "npm run compile-tests && npm run compile",
+    "test": "node --test out/common/organizeImports.test.js",
     "tests": "vscode-test"
   },
   "contributes": {
@@ -142,6 +143,12 @@
         "ty.completions.autoImport": {
           "default": true,
           "markdownDescription": "Whether to include auto-import code completions in ty.",
+          "scope": "resource",
+          "type": "boolean"
+        },
+        "ty.organizeImportsOnAutoImport": {
+          "default": false,
+          "markdownDescription": "Whether to ask VS Code to organize imports after accepting an auto-import completion from ty. Requires exactly one active organizer; does not activate organizer extensions or run when the selection is ambiguous. Not currently supported in notebooks. See the [README](https://github.com/astral-sh/ty-vscode#organize-imports-after-auto-imports).",
           "scope": "resource",
           "type": "boolean"
         },
