@@ -86,9 +86,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Executes the `ty.triggerParameterHints` completion command by delegating
   // to VS Code's built-in parameter hints action.
   context.subscriptions.push(
-    registerCommand("ty.triggerParameterHints", () =>
-      vscode.commands.executeCommand("editor.action.triggerParameterHints"),
-    ),
+    registerCommand("ty.triggerParameterHints", async () => {
+      const parameterHintsEnabled = vscode.workspace
+        .getConfiguration("editor")
+        .get<boolean>("parameterHints.enabled");
+
+      if (parameterHintsEnabled) {
+        await vscode.commands.executeCommand("editor.action.triggerParameterHints");
+      }
+    }),
   );
 
   const environmentProvider = await getEnvironmentProvider();
