@@ -63,6 +63,30 @@ export class FullDiagnosticOutputFeature implements StaticFeature {
   clear(): void {}
 }
 
+/**
+ * Advertises support for the `ty.triggerParameterHints` completion command,
+ * which the extension executes by triggering VS Code's built-in parameter
+ * hints after a callable completion inserts its parentheses.
+ */
+export class TriggerParameterHintsFeature implements StaticFeature {
+  fillClientCapabilities(capabilities: ClientCapabilities): void {
+    capabilities.experimental = {
+      ...capabilities.experimental,
+      commands: {
+        commands: ["ty.triggerParameterHints"],
+      },
+    };
+  }
+
+  initialize(): void {}
+
+  getState(): FeatureState {
+    return { kind: "static" };
+  }
+
+  clear(): void {}
+}
+
 export interface TyMiddleware extends Middleware {
   isDidChangeConfigurationRegistered(): boolean;
   setServerVersion(major: number, minor: number, patch: number): void;
