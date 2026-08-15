@@ -196,6 +196,7 @@ export class LazyOutputChannel implements vscode.LogOutputChannel {
     const now = new Date();
     const milliseconds = now.getMilliseconds().toString().padStart(3, "0");
     const time = `${now.toLocaleTimeString("en-GB")}.${milliseconds}`;
+    // All protocol messages have the same severity, so do not include it in the output.
     this.channel.appendLine(`[${time}] ${util.format(message, ...args)}`);
   }
 
