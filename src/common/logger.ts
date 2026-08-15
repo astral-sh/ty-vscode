@@ -3,6 +3,12 @@ import * as vscode from "vscode";
 
 const GROUP_INDENT = "  ";
 const MAX_LEVEL_LABEL_LENGTH = "[warning]".length;
+const TRACE_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
 
 type LogLevel = "error" | "warning" | "info" | "debug" | "trace";
 
@@ -106,6 +112,40 @@ function indentMessage(indent: string, message: string): string {
 export const logger = new ExtensionLogger();
 
 /**
+ * Creates an unformatted server output channel that satisfies the language client's log API.
+ *
+ * ty already includes timestamps and severity in its logs, so adding VS Code's log formatting
+ * would duplicate both and incorrectly label every stderr message as an error. The language
+ * client forwards server stderr through `error`; recognize server log levels so client errors
+ * and lifecycle messages still go to the client log.
+ */
+export function createServerOutputChannel(name: string): vscode.LogOutputChannel {
+  const channel = vscode.window.createOutputChannel(name, "log");
+
+  return {
+    ...channel,
+    get logLevel(): vscode.LogLevel {
+      return vscode.env.logLevel;
+    },
+    onDidChangeLogLevel: vscode.env.onDidChangeLogLevel,
+    trace: logger.trace.bind(logger),
+    debug: logger.debug.bind(logger),
+    info: logger.info.bind(logger),
+    warn: logger.warn.bind(logger),
+    error(error: string | Error, ...args: any[]): void {
+      const message = util.format(error, ...args);
+      // The language client sends both server logs and client errors here. Server logs
+      // include a log level and must keep their original format.
+      if (/\b(trace|debug|info|warn|error)\b/i.test(message)) {
+        channel.appendLine(message);
+      } else {
+        logger.error(message);
+      }
+    },
+  };
+}
+
+/**
  * A VS Code output channel that is lazily created when it is first accessed.
  *
  * This is useful when the messages are only logged when the extension is configured
@@ -113,20 +153,65 @@ export const logger = new ExtensionLogger();
  *
  * This is currently being used to create the trace output channel for the language server
  * as it is only created when the user enables trace logging.
+ *
+ * The language client only enables tracing when the channel reports the trace log level. Use
+ * the server trace setting for that level so changing the setting does not require a separate
+ * editor log-level change.
  */
-export class LazyOutputChannel implements vscode.OutputChannel {
+export class LazyOutputChannel implements vscode.LogOutputChannel {
   name: string;
   _channel: vscode.OutputChannel | undefined;
+  private readonly logLevelEmitter = new vscode.EventEmitter<vscode.LogLevel>();
+  readonly onDidChangeLogLevel = this.logLevelEmitter.event;
+  private readonly configurationSubscription: vscode.Disposable;
 
-  constructor(name: string) {
+  constructor(
+    name: string,
+    private readonly serverId: string,
+  ) {
     this.name = name;
+    this.configurationSubscription = vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration(`${serverId}.trace.server`)) {
+        this.logLevelEmitter.fire(this.logLevel);
+      }
+    });
+  }
+
+  get logLevel(): vscode.LogLevel {
+    return vscode.workspace.getConfiguration(this.serverId).get("trace.server", "off") === "off"
+      ? vscode.LogLevel.Info
+      : vscode.LogLevel.Trace;
   }
 
   get channel(): vscode.OutputChannel {
     if (!this._channel) {
-      this._channel = vscode.window.createOutputChannel(this.name);
+      this._channel = vscode.window.createOutputChannel(this.name, "log");
     }
     return this._channel;
+  }
+
+  trace(message: string, ...args: any[]): void {
+    const now = new Date();
+    const milliseconds = now.getMilliseconds().toString().padStart(3, "0");
+    this.channel.appendLine(
+      `[${TRACE_TIMESTAMP_FORMATTER.format(now)}.${milliseconds}] ${util.format(message, ...args)}`,
+    );
+  }
+
+  debug(message: string, ...args: any[]): void {
+    this.channel.appendLine(util.format(message, ...args));
+  }
+
+  info(message: string, ...args: any[]): void {
+    this.channel.appendLine(util.format(message, ...args));
+  }
+
+  warn(message: string, ...args: any[]): void {
+    this.channel.appendLine(util.format(message, ...args));
+  }
+
+  error(error: string | Error, ...args: any[]): void {
+    this.channel.appendLine(util.format(error, ...args));
   }
 
   append(value: string): void {
@@ -156,6 +241,8 @@ export class LazyOutputChannel implements vscode.OutputChannel {
   }
 
   dispose(): void {
+    this.configurationSubscription.dispose();
+    this.logLevelEmitter.dispose();
     this._channel?.dispose();
   }
 }

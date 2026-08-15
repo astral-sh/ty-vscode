@@ -4,7 +4,9 @@ import {
   type ClientCapabilities,
   type FeatureState,
   type StaticFeature,
+  type DiagnosticRegistrationOptions,
   DocumentDiagnosticReportKind as ProtocolDocumentDiagnosticReportKind,
+  DocumentDiagnosticRequest,
   type WorkspaceDiagnosticReport as ProtocolWorkspaceDiagnosticReport,
   type WorkspaceDocumentDiagnosticReport as ProtocolWorkspaceDocumentDiagnosticReport,
   WorkspaceDiagnosticRequest,
@@ -22,6 +24,7 @@ import {
 } from "./common/settings";
 import { EnvironmentProvider } from "./common/python";
 import { FullDiagnosticProvider } from "./common/diagnostics";
+import { getDocumentSelector } from "./common/utilities";
 
 // Keys that are handled by the extension and should not be sent to the server
 type ExtensionOnlyKeys = keyof InitializationOptions | keyof ExtensionSettings | "trace";
@@ -191,6 +194,46 @@ export function createTyMiddleware(
     },
 
     async handleRegisterCapability(params, next) {
+      for (const registration of params.registrations) {
+        if (registration.method !== DocumentDiagnosticRequest.method) {
+          continue;
+        }
+
+        const options = registration.registerOptions as DiagnosticRegistrationOptions | undefined;
+        if (options?.documentSelector != null) {
+          continue;
+        }
+
+        // Patch the `documentDiagnostic` server capapbility and remove `vscode-notebook-cell` to
+        // prevent the VSCode language server client V10 from calling `pullDiagnostic` for
+        // cell text-documents.
+        //
+        // We do this for two reasons:
+        //
+        // ty versions older than ~Aug 15th 2026 panicked when `pullDiagnostic` was called with
+        // a cell text-document. Disabling `pullDiagnostic` for notebook cells ensures backwards
+        // compatibility with these older binaries.
+        //
+        // To workaround the following two upstream issues, by preferring `pushDiagnostic`s for notebook cells:
+        // * https://github.com/microsoft/vscode-languageserver-node/issues/1837
+        // * and, partially, https://github.com/microsoft/vscode-languageserver-node/issues/1836
+        //
+        // Once the  upstream issues are fixed, make this registration conditional based on a client/server negogiated
+        // capability:
+        //
+        // * Introduce a new experimental ty-specific `notebookPullDiagnostic` capability. Clients with
+        //   a recent enough VS Code language client version set the capability in the initializeRequest
+        // * New servers supporting pull diagnostics for cells announce the same `notebookPullDiagnostic` capability
+        //   if the client signaled support
+        // * The client changes the registration here based on whether the server sent the `notebookPullDiagnostic` capability.
+        registration.registerOptions = {
+          ...options,
+          documentSelector: getDocumentSelector().filter(
+            (filter) => filter.scheme !== "vscode-notebook-cell",
+          ),
+        };
+      }
+
       await next(params, CancellationToken.None);
 
       for (const registration of params.registrations) {
