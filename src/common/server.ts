@@ -289,12 +289,7 @@ export async function startServer(
   const initializationOptions = getInitializationOptions(serverId);
   logger.info(`Initialization options: ${JSON.stringify(initializationOptions, null, 4)}`);
 
-  const clientRef: { current?: LanguageClient } = {};
-  const middleware = createTyMiddleware(
-    environmentProvider,
-    fullDiagnosticProvider,
-    () => clientRef.current,
-  );
+  const middleware = createTyMiddleware(environmentProvider, fullDiagnosticProvider);
 
   const server = await createServer(
     settings,
@@ -306,7 +301,6 @@ export async function startServer(
     environmentProvider,
     middleware,
   );
-  clientRef.current = server.client;
   const newLSClient = server.client;
   logger.info("Starting ty language server.");
 
