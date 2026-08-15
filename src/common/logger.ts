@@ -3,12 +3,6 @@ import * as vscode from "vscode";
 
 const GROUP_INDENT = "  ";
 const MAX_LEVEL_LABEL_LENGTH = "[warning]".length;
-const TRACE_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat(undefined, {
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hourCycle: "h23",
-});
 
 type LogLevel = "error" | "warning" | "info" | "debug" | "trace";
 
@@ -161,20 +155,22 @@ export function createServerOutputChannel(name: string): vscode.LogOutputChannel
 export class LazyOutputChannel implements vscode.LogOutputChannel {
   name: string;
   _channel: vscode.OutputChannel | undefined;
-  private readonly logLevelEmitter = new vscode.EventEmitter<vscode.LogLevel>();
-  readonly onDidChangeLogLevel = this.logLevelEmitter.event;
-  private readonly configurationSubscription: vscode.Disposable;
+  readonly onDidChangeLogLevel: vscode.Event<vscode.LogLevel> = (listener, thisArgs, disposables) =>
+    vscode.workspace.onDidChangeConfiguration(
+      (event) => {
+        if (event.affectsConfiguration(`${this.serverId}.trace.server`)) {
+          listener.call(thisArgs, this.logLevel);
+        }
+      },
+      undefined,
+      disposables,
+    );
 
   constructor(
     name: string,
     private readonly serverId: string,
   ) {
     this.name = name;
-    this.configurationSubscription = vscode.workspace.onDidChangeConfiguration((event) => {
-      if (event.affectsConfiguration(`${serverId}.trace.server`)) {
-        this.logLevelEmitter.fire(this.logLevel);
-      }
-    });
   }
 
   get logLevel(): vscode.LogLevel {
@@ -190,28 +186,17 @@ export class LazyOutputChannel implements vscode.LogOutputChannel {
     return this._channel;
   }
 
-  trace(message: string, ...args: any[]): void {
+  trace = this.log;
+  debug = this.log;
+  info = this.log;
+  warn = this.log;
+  error = this.log;
+
+  private log(message: string | Error, ...args: any[]): void {
     const now = new Date();
     const milliseconds = now.getMilliseconds().toString().padStart(3, "0");
-    this.channel.appendLine(
-      `[${TRACE_TIMESTAMP_FORMATTER.format(now)}.${milliseconds}] ${util.format(message, ...args)}`,
-    );
-  }
-
-  debug(message: string, ...args: any[]): void {
-    this.channel.appendLine(util.format(message, ...args));
-  }
-
-  info(message: string, ...args: any[]): void {
-    this.channel.appendLine(util.format(message, ...args));
-  }
-
-  warn(message: string, ...args: any[]): void {
-    this.channel.appendLine(util.format(message, ...args));
-  }
-
-  error(error: string | Error, ...args: any[]): void {
-    this.channel.appendLine(util.format(error, ...args));
+    const time = `${now.toLocaleTimeString("en-GB")}.${milliseconds}`;
+    this.channel.appendLine(`[${time}] ${util.format(message, ...args)}`);
   }
 
   append(value: string): void {
@@ -241,8 +226,6 @@ export class LazyOutputChannel implements vscode.LogOutputChannel {
   }
 
   dispose(): void {
-    this.configurationSubscription.dispose();
-    this.logLevelEmitter.dispose();
     this._channel?.dispose();
   }
 }
