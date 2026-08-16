@@ -105,6 +105,22 @@
           "scope": "window",
           "type": "string"
         },
+        "ty.experimental.useUv": {
+          "default": "off",
+          "markdownDescription": "Control how ty uses uv. This setting is always off in untrusted workspaces.",
+          "enum": [
+            "off",
+            "scripts",
+            "on"
+          ],
+          "enumDescriptions": [
+            "Do not use uv.",
+            "Use uv to create environments for standalone scripts.",
+            "Use uv to find projects and create environments for standalone scripts."
+          ],
+          "scope": "window",
+          "type": "string"
+        },
         "ty.showSyntaxErrors": {
           "default": true,
           "markdownDescription": "Whether to show syntax error diagnostics.",

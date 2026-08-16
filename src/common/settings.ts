@@ -10,6 +10,7 @@ import { logger } from "./logger";
 
 export type Version = { major: number; minor: number; patch: number };
 type ImportStrategy = "fromEnvironment" | "useBundled";
+type UseUv = "off" | "scripts" | "on";
 
 type LogLevel = "error" | "warn" | "info" | "debug" | "trace";
 
@@ -17,6 +18,9 @@ export interface InitializationOptions {
   logLevel?: LogLevel;
   logFile?: string;
   untrustedWorkspace?: boolean;
+  experimental: {
+    useUv: UseUv;
+  };
 }
 
 export interface ExtensionSettings {
@@ -76,6 +80,12 @@ export function getInitializationOptions(
   const options: InitializationOptions = {
     logLevel: getOptionalGlobalValue<LogLevel>(config, "logLevel"),
     logFile: getOptionalGlobalValue<string>(config, "logFile"),
+    experimental: {
+      // uv can run code from the workspace, so do not use it in untrusted workspaces.
+      useUv: vscode.workspace.isTrusted
+        ? (config.get<UseUv>("experimental.useUv") ?? "off")
+        : "off",
+    },
   };
 
   // Unknown versions must still receive the trust restriction. Only omit it when
