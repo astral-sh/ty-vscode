@@ -13,6 +13,23 @@ The extension ships with `ty==0.0.69`.
 
 Install this extension from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=astral-sh.ty).
 
+## Requirements
+
+The ty extension works without additional extensions. For Python environment detection, we
+recommend one of the following:
+
+- [Python Environments](https://marketplace.visualstudio.com/items?itemName=ms-python.vscode-python-envs)
+- [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
+
+When either extension is available, ty can find an executable installed in the active Python
+environment. If that lookup fails, or neither extension is available, the extension checks PATH
+before using its bundled ty executable.
+
+Reload VS Code after installing or enabling either extension.
+
+Finding a ty executable through a Python interpreter requires Python 3.8 or later. ty itself can
+analyze Python 3.8 to 3.14.
+
 ## Features
 
 Currently, the extension supports the following features:
@@ -79,11 +96,6 @@ See the ty [editor settings reference](https://docs.astral.sh/ty/reference/edito
 | ty: Show client logs       | Open the "ty" output channel                 |
 | ty: Show server logs       | Open the "ty Language Server" output channel |
 | ty: Open debug information | Opens a window with debug information        |
-
-## Requirements
-
-This extension requires a version of the VSCode Python extension that supports Python 3.8+. ty
-itself is compatible with Python 3.8 to 3.14.
 
 ## Getting help
 

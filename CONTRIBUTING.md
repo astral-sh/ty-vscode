@@ -13,6 +13,45 @@
 To run the extension, navigate to `src/extension.ts` and run (`F5`). You should see the extension output
 and the language server log messages in the debug console under "ty" and "ty Language Server" respectively.
 
+### Testing optional Python extensions
+
+Build and install the extension in an isolated VS Code profile:
+
+```sh
+just install
+just check
+npm run compile
+npm run vsce-package
+
+TY_SMOKE_DIR="$(mktemp -d)"
+mkdir "$TY_SMOKE_DIR/project"
+code --user-data-dir "$TY_SMOKE_DIR/data" \
+  --extensions-dir "$TY_SMOKE_DIR/extensions" \
+  --install-extension "$PWD/ty.vsix"
+code --user-data-dir "$TY_SMOKE_DIR/data" \
+  --extensions-dir "$TY_SMOKE_DIR/extensions" \
+  --list-extensions --show-versions
+code --new-window --skip-welcome --disable-workspace-trust \
+  --user-data-dir "$TY_SMOKE_DIR/data" \
+  --extensions-dir "$TY_SMOKE_DIR/extensions" \
+  "$TY_SMOKE_DIR/project" "$TY_SMOKE_DIR/project/example.py"
+```
+
+Confirm that neither `ms-python.python` nor `ms-python.vscode-python-envs` was installed. Save a
+Python file with a type error and check diagnostics, hover, and the selected executable in the
+client logs. The recommendation should appear once, and each button should open the matching
+extension. Reload the window and confirm that the recommendation does not appear again.
+
+Repeat with `ty.path`, `ty.importStrategy: "useBundled"`, and a ty executable on a controlled `PATH`.
+Test with each Python extension, both extensions, and `python.useEnvironmentsExtension: false`.
+After changing the selected environment, check that imports and the selected ty executable update.
+Without either extension, check a project `.venv` and an explicit `environment.python` setting.
+
+For Restricted Mode, use a fresh profile, omit `--disable-workspace-trust`, and leave the project
+untrusted. Confirm that ty uses its bundled executable regardless of the executable settings.
+After installing or enabling a Python extension, reload the window and check that it is detected.
+Record the extension revision, ty version, selected executable, and relevant logs with the results.
+
 ### Language server protocol extensions
 
 The ty server's experimental Language Server Protocol extensions are documented in [ty's documentation](https://docs.astral.sh/ty/features/language-server/).

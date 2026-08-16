@@ -34,9 +34,7 @@
   "categories": [
     "Programming Languages"
   ],
-  "extensionDependencies": [
-    "ms-python.python"
-  ],
+  "extensionDependencies": [],
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
@@ -115,13 +113,13 @@
         },
         "ty.importStrategy": {
           "default": "fromEnvironment",
-          "markdownDescription": "Strategy for loading the `ty` executable. `fromEnvironment` picks up ty from the environment, falling back to the bundled version if needed. `useBundled` uses the version bundled with the extension.",
+          "markdownDescription": "Strategy for loading the `ty` executable. `fromEnvironment` looks for ty in the active Python environment when the Python Environments or Python extension is available, then checks `PATH`, and finally falls back to the bundled version. `useBundled` uses the version bundled with the extension.",
           "enum": [
             "fromEnvironment",
             "useBundled"
           ],
           "enumDescriptions": [
-            "Use `ty` from environment, falling back to the bundled version if `ty` is not found.",
+            "Use `ty` from the active Python environment or `PATH`, falling back to the bundled version.",
             "Always use the bundled version of `ty`."
           ],
           "scope": "window",
@@ -153,7 +151,7 @@
         },
         "ty.interpreter": {
           "default": null,
-          "markdownDescription": "Path to a Python interpreter to use to find the `ty` executable.",
+          "markdownDescription": "Path to a Python interpreter used to find the ty executable. This setting requires the Python Environments or Python extension.",
           "scope": "window",
           "type": "string"
         },
