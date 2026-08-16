@@ -22,7 +22,8 @@ import { FullDiagnosticProvider } from "./common/diagnostics";
 import { getDocumentSelector } from "./common/utilities";
 
 // Keys that are handled by the extension and should not be sent to the server
-type ExtensionOnlyKeys = keyof InitializationOptions | keyof ExtensionSettings | "trace";
+type ExtensionOnlyKeys =
+  Exclude<keyof InitializationOptions, "experimental"> | keyof ExtensionSettings | "trace";
 
 const EXTENSION_ONLY_KEYS = {
   // InitializationOptions
