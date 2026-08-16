@@ -1,13 +1,10 @@
 import {
-  type BaseLanguageClient,
   type Middleware,
   type ClientCapabilities,
   type FeatureState,
   type StaticFeature,
-  DocumentDiagnosticReportKind as ProtocolDocumentDiagnosticReportKind,
-  type WorkspaceDiagnosticReport as ProtocolWorkspaceDiagnosticReport,
-  type WorkspaceDocumentDiagnosticReport as ProtocolWorkspaceDocumentDiagnosticReport,
-  WorkspaceDiagnosticRequest,
+  type DiagnosticRegistrationOptions,
+  DocumentDiagnosticRequest,
   vsdiag,
   ResponseError,
   CancellationToken,
@@ -22,6 +19,7 @@ import {
 } from "./common/settings";
 import { EnvironmentProvider } from "./common/python";
 import { FullDiagnosticProvider } from "./common/diagnostics";
+import { getDocumentSelector } from "./common/utilities";
 
 // Keys that are handled by the extension and should not be sent to the server
 type ExtensionOnlyKeys = keyof InitializationOptions | keyof ExtensionSettings | "trace";
@@ -92,94 +90,12 @@ export interface TyMiddleware extends Middleware {
   setServerVersion(major: number, minor: number, patch: number): void;
 }
 
-async function convertWorkspaceDiagnosticReport(
-  client: BaseLanguageClient,
-  fullDiagnosticProvider: FullDiagnosticProvider,
-  report: ProtocolWorkspaceDocumentDiagnosticReport,
-  token: CancellationToken,
-): Promise<{
-  report: vsdiag.WorkspaceDocumentDiagnosticReport;
-  activate?: () => void;
-}> {
-  const uri = client.protocol2CodeConverter.asUri(report.uri);
-  if (report.kind === ProtocolDocumentDiagnosticReportKind.Full) {
-    const items = await client.protocol2CodeConverter.asDiagnostics(report.items, token);
-    return {
-      report: {
-        kind: vsdiag.DocumentDiagnosticReportKind.full,
-        uri,
-        resultId: report.resultId,
-        version: report.version,
-        items,
-      },
-      activate: fullDiagnosticProvider.prepareWorkspaceDiagnostics(uri, items),
-    };
-  }
-
-  return {
-    report: {
-      kind: vsdiag.DocumentDiagnosticReportKind.unChanged,
-      uri,
-      resultId: report.resultId,
-      version: report.version,
-    },
-  };
-}
-
-async function reportWorkspaceDiagnostics(
-  client: BaseLanguageClient,
-  fullDiagnosticProvider: FullDiagnosticProvider,
-  report: ProtocolWorkspaceDiagnosticReport,
-  token: CancellationToken,
-  resultReporter: vsdiag.ResultReporter,
-  isRequestActive: () => boolean,
-): Promise<void> {
-  const items: vsdiag.WorkspaceDocumentDiagnosticReport[] = [];
-  const activations: (() => void)[] = [];
-
-  for (const item of report.items) {
-    if (!isRequestActive()) {
-      return;
-    }
-
-    try {
-      const converted = await convertWorkspaceDiagnosticReport(
-        client,
-        fullDiagnosticProvider,
-        item,
-        token,
-      );
-      items.push(converted.report);
-      if (converted.activate != null) {
-        activations.push(converted.activate);
-      }
-    } catch (error) {
-      if (!isRequestActive()) {
-        return;
-      }
-      client.error("Converting workspace diagnostics failed.", error);
-    }
-  }
-
-  if (!isRequestActive()) {
-    return;
-  }
-
-  for (const activate of activations) {
-    activate();
-  }
-  resultReporter({ items });
-}
-
 export function createTyMiddleware(
   environmentProvider: EnvironmentProvider | null,
   fullDiagnosticProvider: FullDiagnosticProvider,
-  getClient: () => BaseLanguageClient | undefined,
 ): TyMiddleware {
   const didChangeRegistrations = new Set<string>();
   let serverVersion: null | { major: number; minor: number; patch: number } = null;
-  let nextWorkspaceDiagnosticRequestId = 0;
-  let activeWorkspaceDiagnosticRequestId: number | undefined;
 
   const middleware: TyMiddleware = {
     isDidChangeConfigurationRegistered() {
@@ -191,6 +107,46 @@ export function createTyMiddleware(
     },
 
     async handleRegisterCapability(params, next) {
+      for (const registration of params.registrations) {
+        if (registration.method !== DocumentDiagnosticRequest.method) {
+          continue;
+        }
+
+        const options = registration.registerOptions as DiagnosticRegistrationOptions | undefined;
+        if (options?.documentSelector != null) {
+          continue;
+        }
+
+        // Patch the `documentDiagnostic` server capapbility and remove `vscode-notebook-cell` to
+        // prevent the VSCode language server client V10 from calling `pullDiagnostic` for
+        // cell text-documents.
+        //
+        // We do this for two reasons:
+        //
+        // ty versions older than ~Aug 15th 2026 panicked when `pullDiagnostic` was called with
+        // a cell text-document. Disabling `pullDiagnostic` for notebook cells ensures backwards
+        // compatibility with these older binaries.
+        //
+        // To workaround the following two upstream issues, by preferring `pushDiagnostic`s for notebook cells:
+        // * https://github.com/microsoft/vscode-languageserver-node/issues/1837
+        // * and, partially, https://github.com/microsoft/vscode-languageserver-node/issues/1836
+        //
+        // Once the  upstream issues are fixed, make this registration conditional based on a client/server negogiated
+        // capability:
+        //
+        // * Introduce a new experimental ty-specific `notebookPullDiagnostic` capability. Clients with
+        //   a recent enough VS Code language client version set the capability in the initializeRequest
+        // * New servers supporting pull diagnostics for cells announce the same `notebookPullDiagnostic` capability
+        //   if the client signaled support
+        // * The client changes the registration here based on whether the server sent the `notebookPullDiagnostic` capability.
+        registration.registerOptions = {
+          ...options,
+          documentSelector: getDocumentSelector().filter(
+            (filter) => filter.scheme !== "vscode-notebook-cell",
+          ),
+        };
+      }
+
       await next(params, CancellationToken.None);
 
       for (const registration of params.registrations) {
@@ -238,80 +194,20 @@ export function createTyMiddleware(
       return [...(actions ?? []), ...fullDiagnosticActions];
     },
 
-    async provideWorkspaceDiagnostics(resultIds, token, resultReporter, next) {
-      const client = getClient();
-      if (client == null) {
-        return next(resultIds, token, resultReporter);
-      }
-      if (!client.isRunning()) {
-        return { items: [] };
-      }
-
-      // vscode-languageclient 9 closes over its original reporter in `next`, so replacing the
-      // reporter cannot decorate workspace diagnostics before its precedence check. Send the
-      // request here and pass the converted reports through the original reporter instead.
-      const requestId = nextWorkspaceDiagnosticRequestId;
-      nextWorkspaceDiagnosticRequestId += 1;
-      activeWorkspaceDiagnosticRequestId = requestId;
-      const partialResultToken = `ty-workspace-diagnostics-${requestId.toString()}`;
-      const isRequestActive = () =>
-        activeWorkspaceDiagnosticRequestId === requestId && !token.isCancellationRequested;
-      const deactivateRequest = () => {
-        if (activeWorkspaceDiagnosticRequestId === requestId) {
-          activeWorkspaceDiagnosticRequestId = undefined;
+    provideWorkspaceDiagnostics(resultIds, token, resultReporter, next) {
+      return next(resultIds, token, (report) => {
+        if (token.isCancellationRequested) {
+          return;
         }
-      };
-      let progressQueue = Promise.resolve();
-      const progressDisposable = client.onProgress(
-        WorkspaceDiagnosticRequest.partialResult,
-        partialResultToken,
-        (partialResult) => {
-          progressQueue = progressQueue.then(() =>
-            reportWorkspaceDiagnostics(
-              client,
-              fullDiagnosticProvider,
-              partialResult,
-              token,
-              resultReporter,
-              isRequestActive,
-            ),
-          );
-        },
-      );
 
-      try {
-        const result = await client.sendRequest(
-          WorkspaceDiagnosticRequest.type,
-          {
-            identifier: "ty",
-            previousResultIds: resultIds.map(({ uri, value }) => ({
-              uri: client.code2ProtocolConverter.asUri(uri),
-              value,
-            })),
-            partialResultToken,
-          },
-          token,
-        );
-        await progressQueue;
+        for (const item of report?.items ?? []) {
+          if (item.kind === vsdiag.DocumentDiagnosticReportKind.full) {
+            fullDiagnosticProvider.prepareWorkspaceDiagnostics(item.uri, item.items)();
+          }
+        }
 
-        await reportWorkspaceDiagnostics(
-          client,
-          fullDiagnosticProvider,
-          result,
-          token,
-          resultReporter,
-          isRequestActive,
-        );
-        return { items: [] };
-      } catch (error) {
-        deactivateRequest();
-        return client.handleFailedRequest(WorkspaceDiagnosticRequest.type, token, error, {
-          items: [],
-        });
-      } finally {
-        deactivateRequest();
-        progressDisposable.dispose();
-      }
+        resultReporter(report);
+      });
     },
 
     workspace: {

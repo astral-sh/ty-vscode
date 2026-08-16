@@ -2,7 +2,7 @@ import * as fsapi from "fs-extra";
 import { execFile } from "node:child_process";
 import { platform } from "node:os";
 import * as vscode from "vscode";
-import { type Disposable, l10n, LanguageStatusSeverity, type OutputChannel } from "vscode";
+import { type Disposable, l10n, LanguageStatusSeverity, type LogOutputChannel } from "vscode";
 import {
   type LanguageClientOptions,
   MessageType,
@@ -226,8 +226,8 @@ async function createServer(
   settings: ExtensionSettings,
   serverId: string,
   serverName: string,
-  outputChannel: OutputChannel,
-  traceOutputChannel: OutputChannel,
+  outputChannel: LogOutputChannel,
+  traceOutputChannel: LogOutputChannel,
   initializationOptions: InitializationOptions,
   environmentProvider: EnvironmentProvider | null,
   middleware: TyMiddleware,
@@ -279,8 +279,8 @@ export async function startServer(
   settings: ExtensionSettings,
   serverId: string,
   serverName: string,
-  outputChannel: OutputChannel,
-  traceOutputChannel: OutputChannel,
+  outputChannel: LogOutputChannel,
+  traceOutputChannel: LogOutputChannel,
   environmentProvider: EnvironmentProvider | null,
   fullDiagnosticProvider: FullDiagnosticProvider,
 ): Promise<ServerState | null> {
@@ -289,12 +289,7 @@ export async function startServer(
   const initializationOptions = getInitializationOptions(serverId);
   logger.info(`Initialization options: ${JSON.stringify(initializationOptions, null, 4)}`);
 
-  const clientRef: { current?: LanguageClient } = {};
-  const middleware = createTyMiddleware(
-    environmentProvider,
-    fullDiagnosticProvider,
-    () => clientRef.current,
-  );
+  const middleware = createTyMiddleware(environmentProvider, fullDiagnosticProvider);
 
   const server = await createServer(
     settings,
@@ -306,7 +301,6 @@ export async function startServer(
     environmentProvider,
     middleware,
   );
-  clientRef.current = server.client;
   const newLSClient = server.client;
   logger.info("Starting ty language server.");
 
