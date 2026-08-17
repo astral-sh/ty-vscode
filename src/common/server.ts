@@ -2,6 +2,7 @@ import * as fsapi from "fs-extra";
 import { execFile } from "node:child_process";
 import { platform } from "node:os";
 import { join, resolve } from "node:path";
+import { promisify } from "node:util";
 import * as vscode from "vscode";
 import { type Disposable, l10n, LanguageStatusSeverity, type LogOutputChannel } from "vscode";
 import {
@@ -37,6 +38,8 @@ import {
   EnvironmentProvider,
 } from "./python";
 
+const execFileAsync = promisify(execFile);
+
 /**
  * Check if shell mode is required for `execFile`.
  *
@@ -53,17 +56,13 @@ export function execFileShellModeRequired(file: string) {
  * Run commands in the server's working directory so directory-sensitive shims
  * select the same environment during discovery, version checks, and startup.
  */
-function executeFile(file: string, args: string[], cwd: string): Promise<string> {
+function executeFile(
+  file: string,
+  args: string[],
+  cwd: string,
+): Promise<{ stdout: string; stderr: string }> {
   const shell = execFileShellModeRequired(file);
-  return new Promise((resolve, reject) => {
-    execFile(shell ? `"${file}"` : file, args, { cwd, shell }, (error, stdout, stderr) => {
-      if (error) {
-        reject(new Error(stderr || error.message));
-      } else {
-        resolve(stdout);
-      }
-    });
-  });
+  return execFileAsync(shell ? `"${file}"` : file, args, { shell, cwd });
 }
 
 export type BinaryResolution = {
@@ -84,9 +83,11 @@ export type BinaryResolution = {
  * 3. Execute a Python script that tries to locate the binary. This uses either
  *    the user-provided interpreter or the interpreter provided by the Python
  *    extension.
- * 4. If the Python script doesn't return a path, check the global environment
+ * 4. If no interpreter is configured or selected, ask bundled ty to discover an
+ *    executable for the workspace.
+ * 5. If neither lookup returns a path, check the global environment
  *    which checks the PATH environment variable.
- * 5. If all else fails, return the bundled executable path.
+ * 6. If all else fails, return the bundled executable path.
  */
 export async function findBinaryPath(
   settings: ExtensionSettings,
@@ -153,10 +154,7 @@ export async function findBinaryPath(
       interpreter = activeEnvironment;
 
       if (interpreter == null) {
-        logger.warn(
-          `No Python interpreter found; skipping lookup of the ty executable in the Python environment.
-          To select a Python interpreter, open the command palette and run 'Python: Select Interpreter'.`,
-        );
+        logger.info("No active Python environment is selected.");
       }
     }
   } else if (userSpecifiedInterpreterPath != null) {
@@ -164,7 +162,7 @@ export async function findBinaryPath(
     try {
       const executable = await resolvePythonExecutable(userSpecifiedInterpreterPath);
       logger.info(`Resolved Python executable for ty lookup: '${executable}'`);
-      const stdout = await executeFile(executable, [FIND_BINARY_SCRIPT_PATH], cwd);
+      const { stdout } = await executeFile(executable, [FIND_BINARY_SCRIPT_PATH], cwd);
       tyBinaryPath = stdout.trim();
     } catch (err) {
       logger.warn(`Could not find ty using 'ty.interpreter': ${err}`);
@@ -183,7 +181,11 @@ export async function findBinaryPath(
 
       if (isSupportedPythonVersion) {
         try {
-          const stdout = await executeFile(interpreter.executable, [FIND_BINARY_SCRIPT_PATH], cwd);
+          const { stdout } = await executeFile(
+            interpreter.executable,
+            [FIND_BINARY_SCRIPT_PATH],
+            cwd,
+          );
           tyBinaryPath = stdout.trim();
         } catch (err) {
           vscode.window
@@ -215,7 +217,30 @@ export async function findBinaryPath(
     };
   }
 
-  // Second choice: the executable in the global environment.
+  if (userSpecifiedInterpreterPath == null && activeEnvironment == null) {
+    logger.info(`Looking for ty using bundled executable discovery in '${cwd}'`);
+
+    try {
+      const { stdout } = await executeFile(
+        BUNDLED_EXECUTABLE,
+        [SERVER_SUBCOMMAND, "--find-executable"],
+        cwd,
+      );
+      const path = stdout.trim();
+      if (path.length > 0) {
+        logger.info(`Resolved ty executable using bundled executable discovery: '${path}'`);
+        return { path, dependsOnActiveInterpreter };
+      }
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === 1) {
+        logger.info("Bundled ty executable discovery found no matching executable.");
+      } else {
+        logger.warn("Bundled ty executable discovery failed:", error);
+      }
+    }
+  }
+
+  // Next choice: the executable in the global environment.
   const globalPath = await which(BINARY_NAME, { nothrow: true });
   if (globalPath != null) {
     logger.info(`Resolved ty executable from PATH: '${globalPath}'`);
@@ -225,7 +250,7 @@ export async function findBinaryPath(
     };
   }
 
-  // Third choice: bundled executable.
+  // Last choice: bundled executable.
   logger.info(`Resolved bundled ty executable: '${BUNDLED_EXECUTABLE}'`);
   return {
     path: BUNDLED_EXECUTABLE,
@@ -318,7 +343,7 @@ async function createServer(
 /** Get the version before initialization, when startup-only options must be filtered. */
 async function getTyVersion(executable: string, cwd: string): Promise<Version | null> {
   try {
-    const stdout = await executeFile(executable, ["--version"], cwd);
+    const { stdout } = await executeFile(executable, ["--version"], cwd);
     const version = stdout.trim().split(" ")[1];
     // Development builds can report a Ruff tag, which is not a ty version.
     if (version != null && !version.startsWith("ruff/")) {
