@@ -118,8 +118,8 @@
             "fromEnvironment",
             "useBundled"
           ],
-          "markdownEnumDescriptions": [
-            "Use the Python Environments or Python extension to look for `ty` using `#ty.interpreter#` or the active Python environment. If no executable is found, check `PATH`, then use the bundled version.",
+          "enumDescriptions": [
+            "Use `ty` from the active Python environment if the Python Environments or Python extension is available, then from `PATH`, falling back to the bundled version.",
             "Always use the bundled version of `ty`."
           ],
           "scope": "window",
