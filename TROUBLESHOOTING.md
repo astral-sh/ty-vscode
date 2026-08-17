@@ -3,19 +3,6 @@
 This document describes how to troubleshoot issues with the ty extension or the
 language server in Visual Studio Code.
 
-## Python environments
-
-The Python Environments and Python extensions are optional. If you install or enable either one,
-reload VS Code to enable Python environment detection.
-
-The `ty.path`, `ty.importStrategy`, and `ty.interpreter` settings control which ty executable the
-extension runs. The client logs show the selected executable. `ty.interpreter` requires one of the
-Python extensions; it does not select the Python environment used for type checking.
-
-Without either extension, ty discovers the analysis environment itself. If imports resolve from
-the wrong environment, configure [`environment.python`](https://docs.astral.sh/ty/reference/configuration/#python).
-See [Python environment discovery](https://docs.astral.sh/ty/modules/#python-environment) for details.
-
 ## Logs
 
 If you encounter any issues with the extension or the language server, please refer to the
