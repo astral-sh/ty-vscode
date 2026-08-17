@@ -22,7 +22,7 @@ recommend one of the following:
 - [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
 
 When either extension is available, ty can find an executable installed in the active Python
-environment. If that lookup fails, or neither extension is available, the extension checks PATH
+environment. If that lookup fails, or neither extension is available, the extension checks `PATH`
 before using its bundled ty executable.
 
 Reload VS Code after installing or enabling either extension.
