@@ -30,6 +30,9 @@ def find_ty_binary_path() -> Optional[Path]:
 
 
 if __name__ == "__main__":
+    if sys.version_info.major != 3 or sys.version_info.minor < 8:
+        sys.exit("Finding ty requires Python 3.8 or later.")
+
     # Python defaults to the system's local encoding for stdout on Windows.
     # source: https://docs.python.org/3/library/sys.html#sys.stdout
     #

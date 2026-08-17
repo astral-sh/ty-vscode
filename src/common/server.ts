@@ -159,6 +159,14 @@ export async function findBinaryPath(
         );
       }
     }
+  } else if (userSpecifiedInterpreterPath != null) {
+    logger.info(`Looking for ty using 'ty.interpreter': '${userSpecifiedInterpreterPath}'`);
+    try {
+      const stdout = await executeFile(userSpecifiedInterpreterPath, [FIND_BINARY_SCRIPT_PATH]);
+      tyBinaryPath = stdout.trim();
+    } catch (err) {
+      logger.warn(`Could not find ty using 'ty.interpreter': ${err}`);
+    }
   }
 
   if (interpreter != null) {
