@@ -240,16 +240,17 @@ jobs:
           path: dist
       - run: ls -al ./dist
 
-      # Install Node dependencies.
+      # Install the marketplace publishing tools.
       - run: npm ci --ignore-scripts
+        working-directory: scripts/publish
 
       # Publish to the Code Marketplace.
       - name: Publish Extension (Code Marketplace, release)
         if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || (github.event_name == 'release' && !github.event.release.prerelease) }}
-        run: npx vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ty-*.vsix --skip-duplicate
+        run: ./scripts/publish/node_modules/.bin/vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ty-*.vsix --skip-duplicate
       - name: Publish Extension (Code Marketplace, nightly)
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || (github.event_name == 'release' && github.event.release.prerelease) }}
-        run: npx vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ty-*.vsix --pre-release --skip-duplicate
+        run: ./scripts/publish/node_modules/.bin/vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ty-*.vsix --pre-release --skip-duplicate
 
   publish-openvsx:
     name: "Publish (OpenVSX)"
@@ -307,15 +308,16 @@ jobs:
           path: dist
       - run: ls -al ./dist
 
-      # Install Node dependencies.
+      # Install the marketplace publishing tools.
       - run: npm ci --ignore-scripts
+        working-directory: scripts/publish
 
       # Publish to OpenVSX.
       - name: Publish Extension (OpenVSX, release)
         if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || (github.event_name == 'release' && !github.event.release.prerelease) }}
-        run: npx ovsx publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ty-*.vsix --skip-duplicate
+        run: ./scripts/publish/node_modules/.bin/ovsx publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ty-*.vsix --skip-duplicate
         timeout-minutes: 2
       - name: Publish Extension (OpenVSX, nightly)
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || (github.event_name == 'release' && github.event.release.prerelease) }}
-        run: npx ovsx publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ty-*.vsix --pre-release --skip-duplicate
+        run: ./scripts/publish/node_modules/.bin/ovsx publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ty-*.vsix --pre-release --skip-duplicate
         timeout-minutes: 2
