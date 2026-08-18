@@ -41,7 +41,8 @@
       "restrictedConfigurations": [
         "ty.experimental.useUv",
         "ty.importStrategy",
-        "ty.interpreter"
+        "ty.interpreter",
+        "ty.path"
       ]
     },
     "virtualWorkspaces": {
