@@ -63,6 +63,7 @@
     "compile": "webpack",
     "compile-tests": "tsc -p . --outDir out",
     "tsc": "tsc --noEmit",
+    "test:logger": "node --test tests/logger.test.cjs",
     "package": "webpack --mode production --devtool source-map --config ./webpack.config.js",
     "watch": "webpack --watch",
     "vsce-package": "vsce package -o ty.vsix",

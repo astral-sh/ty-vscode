@@ -24,6 +24,7 @@ check:
   npm run fmt-check
   npm run lint
   npm run tsc
+  npm run test:logger
 
 # Format the code
 fmt:
