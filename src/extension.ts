@@ -103,10 +103,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   if (environmentProvider == null) {
     const message =
-      "No Python environment extension is available. ty will use a configured, globally " +
-      "installed, or bundled executable. Install the Python Environments or Python " +
-      "extension to use the selected Python environment and find a ty executable installed " +
-      "there, then reload VS Code. [Learn more](https://github.com/astral-sh/ty-vscode#requirements).";
+      "No Python environment extension is available. ty will use a configured, globally-installed, " +
+      "or bundled executable. To use an environment-specific executable instead (recommended), " +
+      "install either the Python Environments or Python extension and reload VS Code. " +
+      "[Learn more](https://github.com/astral-sh/ty-vscode#requirements).";
 
     logger.info(message);
 
