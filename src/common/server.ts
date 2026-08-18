@@ -235,8 +235,11 @@ export async function findBinaryPath(
 
 async function resolvePythonExecutable(interpreterPath: string): Promise<string> {
   const stats = await fsapi.stat(interpreterPath).catch(() => undefined);
-  if (!stats?.isDirectory()) {
+  if (stats?.isFile()) {
     return interpreterPath;
+  }
+  if (!stats?.isDirectory()) {
+    throw new Error(`'${interpreterPath}' is not a file or directory.`);
   }
 
   // Match the Python extensions' native resolver, including MSYS2's bin layout on Windows.
