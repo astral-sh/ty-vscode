@@ -81,10 +81,7 @@ export function getInitializationOptions(
     logLevel: getOptionalGlobalValue<LogLevel>(config, "logLevel"),
     logFile: getOptionalGlobalValue<string>(config, "logFile"),
     experimental: {
-      // uv can run code from the workspace, so do not use it in untrusted workspaces.
-      useUv: vscode.workspace.isTrusted
-        ? (config.get<UseUv>("experimental.useUv") ?? "off")
-        : "off",
+      useUv: config.get<UseUv>("experimental.useUv") ?? "off",
     },
   };
 

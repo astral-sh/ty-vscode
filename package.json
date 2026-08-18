@@ -110,7 +110,7 @@
         },
         "ty.experimental.useUv": {
           "default": "off",
-          "markdownDescription": "Control how ty uses uv. This setting is always off in untrusted workspaces.",
+          "markdownDescription": "Control how ty uses uv.",
           "enum": [
             "off",
             "scripts",
