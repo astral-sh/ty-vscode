@@ -3,12 +3,8 @@ import * as vscode from "vscode";
 
 const GROUP_INDENT = "  ";
 const MAX_LEVEL_LABEL_LENGTH = "[warning]".length;
-// Example: 2026-08-18 14:56:28.140917000 DEBUG Requesting workspace configuration
-const SERVER_LOG_PATTERN =
-  /^(?<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{9}) +(?<level>TRACE|DEBUG|INFO|WARN|ERROR)(?: (?<message>.*))?$/s;
 
 type LogLevel = "error" | "warning" | "info" | "debug" | "trace";
-type ServerLogMethod = "trace" | "debug" | "info" | "warn" | "error";
 
 function groupIndent(level: LogLevel, depth: number): string {
   if (depth === 0) {
@@ -110,66 +106,29 @@ function indentMessage(indent: string, message: string): string {
 export const logger = new ExtensionLogger();
 
 /**
- * Creates a server output channel that satisfies the language client's log API.
+ * Creates an unformatted server output channel that satisfies the language client's log API.
  *
  * The language client sends each stderr line to `error`, which it also uses for its own errors.
- * For calls with a single string, use these rules:
- *
- * - A ty timestamp and level prefix starts a new record. Remove the prefix and log at that level.
- * - Save the level if the message ends in `{`, `[`, or `(`, ignoring trailing spaces and tabs.
- * - While a level is saved, lines starting with a space or tab use that level.
- * - An unindented line containing only `}`, `]`, or `)` characters, an optional comma, and
- *   optional trailing spaces or tabs uses the saved level, then clears it.
- * - Any other `error` call keeps the client's error handling and clears the saved level. A new ty
- *   record replaces the saved level according to the rules above.
- *
- * For example, the client forwards these three stderr lines as separate `error` calls:
- * ```text
- * 2026-08-18 14:56:28.140917000 DEBUG WorkspaceOptions {
- *     configuration: None,
- * }
- * ```
- * We log all three lines at debug level, without ty's timestamp or level prefix. The final `}`
- * clears the saved level, so a later `error("Request failed")` is logged as an error.
- *
- * This is a heuristic. An indented client error can be mistaken for a continuation, and an
- * unrelated client error can end a multiline server message early.
+ * Append every message unchanged so ty keeps its timestamps, levels, and multiline formatting.
+ * A native log channel would add another log-level filter, which could discard messages enabled
+ * by `ty.logLevel`. Client messages use the same channel without an added prefix.
  * See https://github.com/microsoft/vscode-languageserver-node/issues/1754.
  */
 export function createServerOutputChannel(name: string): vscode.LogOutputChannel {
-  const channel = vscode.window.createOutputChannel(name, { log: true });
-  let continuationMethod: ServerLogMethod | undefined;
+  const channel = vscode.window.createOutputChannel(name, "log");
+  const appendLine = (message: string | Error, ...args: unknown[]): void => {
+    channel.appendLine(util.format(message, ...args));
+  };
 
   return {
     ...channel,
-    get logLevel(): vscode.LogLevel {
-      return channel.logLevel;
-    },
-    error(error: string | Error, ...args: unknown[]): void {
-      const line = typeof error === "string" && args.length === 0 ? error : undefined;
-      const match = line === undefined ? null : SERVER_LOG_PATTERN.exec(line);
-      if (match?.groups) {
-        const { level, message = "" } = match.groups;
-        const method = level.toLowerCase() as ServerLogMethod;
-        continuationMethod = /[([{][ \t]*$/.test(message) ? method : undefined;
-        channel[method](message);
-        return;
-      }
-
-      if (line !== undefined && continuationMethod !== undefined) {
-        const isClosingLine = /^[}\])]+,?[ \t]*$/.test(line);
-        if (/^[ \t]/.test(line) || isClosingLine) {
-          channel[continuationMethod](line);
-          if (isClosingLine) {
-            continuationMethod = undefined;
-          }
-          return;
-        }
-      }
-
-      continuationMethod = undefined;
-      channel.error(error, ...args);
-    },
+    logLevel: vscode.LogLevel.Trace,
+    onDidChangeLogLevel: () => ({ dispose() {} }),
+    trace: appendLine,
+    debug: appendLine,
+    info: appendLine,
+    warn: appendLine,
+    error: appendLine,
   };
 }
 
