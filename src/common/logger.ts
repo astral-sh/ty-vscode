@@ -108,34 +108,27 @@ export const logger = new ExtensionLogger();
 /**
  * Creates an unformatted server output channel that satisfies the language client's log API.
  *
- * ty already includes timestamps and severity in its logs, so adding VS Code's log formatting
- * would duplicate both and incorrectly label every stderr message as an error. The language
- * client forwards server stderr through `error`; recognize server log levels so client errors
- * and lifecycle messages still go to the client log.
+ * The language client sends each stderr line to `error`, which it also uses for its own errors.
+ * Append every message unchanged so ty keeps its timestamps, levels, and multiline formatting.
+ * A native log channel would add another log-level filter, which could discard messages enabled
+ * by `ty.logLevel`. Client messages use the same channel without an added prefix.
+ * See https://github.com/microsoft/vscode-languageserver-node/issues/1754.
  */
 export function createServerOutputChannel(name: string): vscode.LogOutputChannel {
   const channel = vscode.window.createOutputChannel(name, "log");
+  const appendLine = (message: string | Error, ...args: unknown[]): void => {
+    channel.appendLine(util.format(message, ...args));
+  };
 
   return {
     ...channel,
-    get logLevel(): vscode.LogLevel {
-      return vscode.env.logLevel;
-    },
-    onDidChangeLogLevel: vscode.env.onDidChangeLogLevel,
-    trace: logger.trace.bind(logger),
-    debug: logger.debug.bind(logger),
-    info: logger.info.bind(logger),
-    warn: logger.warn.bind(logger),
-    error(error: string | Error, ...args: any[]): void {
-      const message = util.format(error, ...args);
-      // The language client sends both server logs and client errors here. Server logs
-      // include a log level and must keep their original format.
-      if (/\b(trace|debug|info|warn|error)\b/i.test(message)) {
-        channel.appendLine(message);
-      } else {
-        logger.error(message);
-      }
-    },
+    logLevel: vscode.LogLevel.Trace,
+    onDidChangeLogLevel: () => ({ dispose() {} }),
+    trace: appendLine,
+    debug: appendLine,
+    info: appendLine,
+    warn: appendLine,
+    error: appendLine,
   };
 }
 
