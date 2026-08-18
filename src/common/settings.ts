@@ -8,7 +8,7 @@ import * as vscode from "vscode";
 import { getConfiguration, getWorkspaceFolders } from "./vscodeapi";
 import { logger } from "./logger";
 
-type Version = { major: number; minor: number; patch: number };
+export type Version = { major: number; minor: number; patch: number };
 type ImportStrategy = "fromEnvironment" | "useBundled";
 
 type LogLevel = "error" | "warn" | "info" | "debug" | "trace";
@@ -16,6 +16,7 @@ type LogLevel = "error" | "warn" | "info" | "debug" | "trace";
 export interface InitializationOptions {
   logLevel?: LogLevel;
   logFile?: string;
+  untrustedWorkspace?: boolean;
 }
 
 export interface ExtensionSettings {
@@ -65,12 +66,26 @@ export function resolveVariables(
   }
 }
 
-export function getInitializationOptions(namespace: string): InitializationOptions {
+// TODO: Verify the first release containing https://github.com/astral-sh/ruff/pull/27828.
+const UNTRUSTED_WORKSPACE_SUPPORTED_SINCE: Version = { major: 0, minor: 0, patch: 73 };
+
+export function getInitializationOptions(
+  namespace: string,
+  serverVersion: Version | null,
+): InitializationOptions {
   const config = getConfiguration(namespace);
-  return {
+  const options: InitializationOptions = {
     logLevel: getOptionalGlobalValue<LogLevel>(config, "logLevel"),
     logFile: getOptionalGlobalValue<string>(config, "logFile"),
   };
+
+  // Unknown versions must still receive the trust restriction. Only omit it when
+  // we know the server is too old to support it.
+  if (serverVersion == null || isNewerThan(serverVersion, UNTRUSTED_WORKSPACE_SUPPORTED_SINCE)) {
+    options.untrustedWorkspace = !vscode.workspace.isTrusted;
+  }
+
+  return options;
 }
 
 function getInterpreterFromSetting(namespace: string, scope?: ConfigurationScope): string | null {

@@ -17,11 +17,7 @@ import {
   SERVER_SUBCOMMAND,
 } from "./constants";
 import { logger } from "./logger";
-import {
-  getInitializationOptions,
-  InitializationOptions,
-  type ExtensionSettings,
-} from "./settings";
+import { getInitializationOptions, type ExtensionSettings, type Version } from "./settings";
 import { updateStatus } from "./status";
 import { getDocumentSelector } from "./utilities";
 
@@ -228,7 +224,6 @@ async function createServer(
   serverName: string,
   outputChannel: LogOutputChannel,
   traceOutputChannel: LogOutputChannel,
-  initializationOptions: InitializationOptions,
   environmentProvider: EnvironmentProvider | null,
   middleware: TyMiddleware,
 ): Promise<ServerState> {
@@ -236,6 +231,9 @@ async function createServer(
     (await environmentProvider?.getActiveEnvironment(settings.cwd.uri)) ?? null;
   const binaryResolution = await findBinaryPath(settings, environmentProvider, activeEnvironment);
   const binaryPath = binaryResolution.path;
+  const version = await getTyVersion(binaryPath);
+  const initializationOptions = getInitializationOptions(serverId, version);
+  logger.info(`Initialization options: ${JSON.stringify(initializationOptions, null, 4)}`);
 
   const serverArgs: string[] = [SERVER_SUBCOMMAND];
   logger.info(`ty language server command: '${[binaryPath, ...serverArgs].join(" ")}'`);
@@ -267,6 +265,26 @@ async function createServer(
   };
 }
 
+/** Get the version before initialization, when startup-only options must be filtered. */
+async function getTyVersion(executable: string): Promise<Version | null> {
+  try {
+    const stdout = await executeFile(executable, ["--version"]);
+    // Development builds can report a Ruff tag, which is not a ty version.
+    const match = /^ty (\d+)\.(\d+)\.(\d+)(?:\+\d+)?(?: \([^()\r\n]*\))?$/.exec(stdout.trim());
+    if (match != null) {
+      return {
+        major: Number(match[1]),
+        minor: Number(match[2]),
+        patch: Number(match[3]),
+      };
+    }
+    logger.warn(`Could not parse ty version: ${stdout.trim()}`);
+  } catch (error) {
+    logger.warn(`Could not determine ty version: ${error}`);
+  }
+  return null;
+}
+
 export type ServerState = {
   client: LanguageClient;
   binaryResolution: BinaryResolution;
@@ -286,9 +304,6 @@ export async function startServer(
 ): Promise<ServerState | null> {
   updateStatus(undefined, LanguageStatusSeverity.Information, true);
 
-  const initializationOptions = getInitializationOptions(serverId);
-  logger.info(`Initialization options: ${JSON.stringify(initializationOptions, null, 4)}`);
-
   const middleware = createTyMiddleware(environmentProvider, fullDiagnosticProvider);
 
   const server = await createServer(
@@ -297,7 +312,6 @@ export async function startServer(
     serverName,
     outputChannel,
     traceOutputChannel,
-    initializationOptions,
     environmentProvider,
     middleware,
   );
