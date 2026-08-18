@@ -2,10 +2,17 @@ import { isDeepStrictEqual } from "node:util";
 import { type Disposable, type Event, EventEmitter, extensions, Uri } from "vscode";
 import { logger } from "./logger";
 import {
+  PVSC_EXTENSION_ID as PYTHON_EXTENSION_ID,
   PythonExtension as PythonExtensionApi,
   type ResolvedEnvironment,
 } from "@vscode/python-extension";
-import type { PythonEnvironmentApi, PythonEnvironment } from "@vscode/python-environments";
+import {
+  EXTENSION_ID as PYTHON_ENVIRONMENTS_EXTENSION_ID,
+  type PythonEnvironmentApi,
+  type PythonEnvironment,
+} from "@vscode/python-environments";
+
+export { PYTHON_EXTENSION_ID, PYTHON_ENVIRONMENTS_EXTENSION_ID };
 
 const onDidChangeActivePythonEnvironmentEvent =
   new EventEmitter<OnDidChangeActivePythonEnvironmentEventArgs>();
@@ -46,6 +53,11 @@ class PythonExtension implements EnvironmentProvider {
   }
 
   static async tryActivate(): Promise<PythonExtension | null> {
+    if (extensions.getExtension(PYTHON_EXTENSION_ID) == null) {
+      logger.info("The Python extension is not installed or is disabled.");
+      return null;
+    }
+
     logger.info("Initializing Python extension");
 
     let extension;
@@ -154,7 +166,7 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
   }
 
   static async tryActivate(): Promise<PythonEnvironmentExtension | null> {
-    const extension = extensions.getExtension("ms-python.vscode-python-envs");
+    const extension = extensions.getExtension(PYTHON_ENVIRONMENTS_EXTENSION_ID);
 
     if (extension == null) {
       logger.info("The Python Environments extension is not installed or is disabled.");

@@ -6,6 +6,8 @@ import {
   getEnvironmentProvider,
   onDidChangeActivePythonEnvironment,
   OnDidChangeActivePythonEnvironmentEventArgs,
+  PYTHON_EXTENSION_ID,
+  PYTHON_ENVIRONMENTS_EXTENSION_ID,
 } from "./common/python";
 import { findBinaryPath, type ServerState, startServer, stopServer } from "./common/server";
 import { checkIfConfigurationChanged, getExtensionSettings } from "./common/settings";
@@ -98,6 +100,40 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   const environmentProvider = await getEnvironmentProvider();
+
+  if (environmentProvider == null) {
+    const message =
+      "No Python environment extension is available. ty will use a configured, globally-installed, " +
+      "or bundled executable. To use an environment-specific executable instead (recommended), " +
+      "install either the Python Environments or Python extension and reload VS Code. " +
+      "[Learn more](https://github.com/astral-sh/ty-vscode#requirements).";
+
+    logger.info(message);
+
+    const stateKey = "ty.pythonEnvironmentRecommendationShown";
+
+    if (!context.globalState.get<boolean>(stateKey)) {
+      await context.globalState.update(stateKey, true);
+
+      void vscode.window
+        .showInformationMessage(message, "Python Environments", "Python")
+        .then((selection) => {
+          const extensionId =
+            selection === "Python Environments"
+              ? PYTHON_ENVIRONMENTS_EXTENSION_ID
+              : selection === "Python"
+                ? PYTHON_EXTENSION_ID
+                : undefined;
+
+          if (extensionId != null) {
+            void vscode.commands.executeCommand(
+              "workbench.extensions.search",
+              `@id:${extensionId}`,
+            );
+          }
+        });
+    }
+  }
 
   const runServer = async () => {
     if (serverState != null) {

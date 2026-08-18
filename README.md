@@ -82,8 +82,20 @@ See the ty [editor settings reference](https://docs.astral.sh/ty/reference/edito
 
 ## Requirements
 
-This extension requires a version of the VSCode Python extension that supports Python 3.8+. ty
-itself is compatible with Python 3.8 to 3.14.
+The ty extension works without additional extensions. For Python environment detection, we
+recommend one of the following:
+
+- [Python Environments](https://marketplace.visualstudio.com/items?itemName=ms-python.vscode-python-envs)
+- [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
+
+When either extension is available, ty can find an executable installed in the active Python
+environment. If that lookup fails, or neither extension is available, the extension checks `PATH`
+before using its bundled ty executable.
+
+Reload VS Code after installing or enabling either extension.
+
+Finding a ty executable through a Python interpreter requires Python 3.8 or later. ty itself can
+analyze Python 3.8 to 3.14.
 
 ## Getting help
 
