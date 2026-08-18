@@ -269,14 +269,13 @@ async function createServer(
 async function getTyVersion(executable: string): Promise<Version | null> {
   try {
     const stdout = await executeFile(executable, ["--version"]);
+    const version = stdout.trim().split(" ")[1];
     // Development builds can report a Ruff tag, which is not a ty version.
-    const match = /^ty (\d+)\.(\d+)\.(\d+)(?:\+\d+)?(?: \([^()\r\n]*\))?$/.exec(stdout.trim());
-    if (match != null) {
-      return {
-        major: Number(match[1]),
-        minor: Number(match[2]),
-        patch: Number(match[3]),
-      };
+    if (version != null && !version.startsWith("ruff/")) {
+      const [major, minor, patch] = version.split(".").map((part) => parseInt(part, 10));
+      if (!isNaN(major) && !isNaN(minor) && !isNaN(patch)) {
+        return { major, minor, patch };
+      }
     }
     logger.warn(`Could not parse ty version: ${stdout.trim()}`);
   } catch (error) {
