@@ -4,7 +4,7 @@
 
 ### Getting Started
 
-- Install [Node.js](https://nodejs.org/) 24.15 or newer in the 24.x release line, with `npm` 11.10 or newer.
+- Install [Node.js](https://nodejs.org/).
 - Install [`uv`](https://github.com/astral-sh/uv).
 - Install [`just`](https://github.com/casey/just), or see the `justfile` for corresponding commands.
 - Install development dependencies (`just install`).
