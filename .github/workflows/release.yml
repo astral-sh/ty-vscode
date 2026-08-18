@@ -275,18 +275,19 @@ jobs:
           path: dist
       - run: ls -al ./dist
 
-      # Install Node dependencies.
+      # Install the marketplace publishing tools.
       - run: npm ci --ignore-scripts
+        working-directory: scripts/publish
 
       # Publish to the Code Marketplace.
       - name: Publish Extension (Code Marketplace, release)
         if: needs.validate-release.outputs.prerelease == 'false'
-        run: npx vsce publish --packagePath ./dist/ty-*.vsix --skip-duplicate
+        run: ./scripts/publish/node_modules/.bin/vsce publish --packagePath ./dist/ty-*.vsix --skip-duplicate
         env:
           VSCE_PAT: ${{ secrets.MARKETPLACE_TOKEN }}
       - name: Publish Extension (Code Marketplace, nightly)
         if: needs.validate-release.outputs.prerelease == 'true'
-        run: npx vsce publish --packagePath ./dist/ty-*.vsix --pre-release --skip-duplicate
+        run: ./scripts/publish/node_modules/.bin/vsce publish --packagePath ./dist/ty-*.vsix --pre-release --skip-duplicate
         env:
           VSCE_PAT: ${{ secrets.MARKETPLACE_TOKEN }}
 
@@ -350,19 +351,20 @@ jobs:
           path: dist
       - run: ls -al ./dist
 
-      # Install Node dependencies.
+      # Install the marketplace publishing tools.
       - run: npm ci --ignore-scripts
+        working-directory: scripts/publish
 
       # Publish to OpenVSX.
       - name: Publish Extension (OpenVSX, release)
         if: needs.validate-release.outputs.prerelease == 'false'
-        run: npx ovsx publish --packagePath ./dist/ty-*.vsix --skip-duplicate
+        run: ./scripts/publish/node_modules/.bin/ovsx publish --packagePath ./dist/ty-*.vsix --skip-duplicate
         env:
           OVSX_PAT: ${{ secrets.OPENVSX_TOKEN }}
         timeout-minutes: 2
       - name: Publish Extension (OpenVSX, nightly)
         if: needs.validate-release.outputs.prerelease == 'true'
-        run: npx ovsx publish --packagePath ./dist/ty-*.vsix --pre-release --skip-duplicate
+        run: ./scripts/publish/node_modules/.bin/ovsx publish --packagePath ./dist/ty-*.vsix --pre-release --skip-duplicate
         env:
           OVSX_PAT: ${{ secrets.OPENVSX_TOKEN }}
         timeout-minutes: 2
