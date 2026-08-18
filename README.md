@@ -67,8 +67,6 @@ For untrusted workspaces, the extension always uses the bundled ty executable, i
 - [`ty.interpreter`](https://docs.astral.sh/ty/reference/editor-settings#interpreter)
 - [`ty.path`](https://docs.astral.sh/ty/reference/editor-settings#path)
 
-The extension also turns off uv integration in untrusted workspaces.
-
 ## Settings
 
 See the ty [editor settings reference](https://docs.astral.sh/ty/reference/editor-settings/) for an enumeration of all supported settings.
