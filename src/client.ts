@@ -28,6 +28,7 @@ const EXTENSION_ONLY_KEYS = {
   // InitializationOptions
   logLevel: true,
   logFile: true,
+  untrustedWorkspace: true,
 
   // ExtensionSettings
   cwd: true,
