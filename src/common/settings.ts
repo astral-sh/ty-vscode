@@ -66,8 +66,7 @@ export function resolveVariables(
   }
 }
 
-// TODO: Verify the first release containing https://github.com/astral-sh/ruff/pull/27828.
-const UNTRUSTED_WORKSPACE_SUPPORTED_SINCE: Version = { major: 0, minor: 0, patch: 73 };
+const UNTRUSTED_WORKSPACE_SUPPORTED_SINCE: Version = { major: 0, minor: 0, patch: 74 };
 
 export function getInitializationOptions(
   namespace: string,
