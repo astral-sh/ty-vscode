@@ -9,11 +9,12 @@ This script does the following things:
 """
 
 # /// script
-# requires-python = ">=3.8"
+# requires-python = ">=3.12"
 # dependencies = ["packaging", "requests", "rich-argparse", "tomli", "tomlkit"]
 #
 # [tool.uv]
-# exclude-newer = "2024-11-27T00:00:00Z"
+# exclude-newer = "P7D"
+# no-build = true
 # ///
 from __future__ import annotations
 

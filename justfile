@@ -45,4 +45,4 @@ clean:
 
 # Run the release script
 release *ARGS:
-  uv run --python=3.8 scripts/release.py {{ARGS}}
+  uv run scripts/release.py {{ARGS}}
