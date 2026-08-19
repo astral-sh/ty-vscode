@@ -9,7 +9,10 @@ exclude-newer = "P7D"
 
 [tool.ruff]
 line-length = 88
-target-version = "py37"
+target-version = "py38"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "Q", "UP", "I", "N"]
+
+[dependency-groups]
+dev = ["ruff>=0.16.2", "ty>=0.0.69", "uv>=0.12.3"]
