@@ -19,7 +19,7 @@ install: setup
 check:
   uv run --dev ruff check ./bundled/tool ./build ./scripts
   uv run --dev ruff format --check ./bundled/tool ./build ./scripts
-  uv run --dev ty check ./scripts/release.py
+  uv run --dev --with-requirements ./scripts/release.py ty check ./scripts/release.py
   uv run --dev ty check bundled/tool/find_ty_binary_path.py
   npm run fmt-check
   npm run lint
@@ -29,7 +29,7 @@ check:
 fmt:
   uv run --dev ruff check --fix ./bundled/tool ./build ./scripts
   uv run --dev ruff format ./bundled/tool ./build ./scripts
-  uv run --dev ty check --fix ./scripts/release.py
+  uv run --dev --with-requirements ./scripts/release.py ty check --fix ./scripts/release.py
   uv run --dev ty check --fix bundled/tool/find_ty_binary_path.py
   npm run fmt
 
