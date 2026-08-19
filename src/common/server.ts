@@ -1,6 +1,7 @@
 import * as fsapi from "fs-extra";
 import { execFile } from "node:child_process";
 import { platform } from "node:os";
+import { resolve } from "node:path";
 import * as vscode from "vscode";
 import { type Disposable, l10n, LanguageStatusSeverity, type LogOutputChannel } from "vscode";
 import {
@@ -49,12 +50,13 @@ export function execFileShellModeRequired(file: string) {
 }
 
 /**
- * Function to execute a command and return the stdout.
+ * Run commands in the server's working directory so directory-sensitive shims
+ * select the same environment during discovery, version checks, and startup.
  */
-function executeFile(file: string, args: string[] = []): Promise<string> {
+function executeFile(file: string, args: string[], cwd: string): Promise<string> {
   const shell = execFileShellModeRequired(file);
   return new Promise((resolve, reject) => {
-    execFile(shell ? `"${file}"` : file, args, { shell }, (error, stdout, stderr) => {
+    execFile(shell ? `"${file}"` : file, args, { cwd, shell }, (error, stdout, stderr) => {
       if (error) {
         reject(new Error(stderr || error.message));
       } else {
@@ -98,9 +100,12 @@ export async function findBinaryPath(
     return { path: BUNDLED_EXECUTABLE, dependsOnActiveInterpreter: false };
   }
 
+  const cwd = settings.cwd.uri.fsPath;
+
   // 'path' setting takes priority over everything.
   if (settings.path.length > 0) {
-    for (const path of settings.path) {
+    for (const configuredPath of settings.path) {
+      const path = resolve(cwd, configuredPath);
       if (await fsapi.pathExists(path)) {
         logger.info(`Resolved ty executable from 'ty.path': '${path}'`);
         return { path, dependsOnActiveInterpreter: false };
@@ -168,7 +173,7 @@ export async function findBinaryPath(
 
       if (isSupportedPythonVersion) {
         try {
-          const stdout = await executeFile(interpreter.executable, [FIND_BINARY_SCRIPT_PATH]);
+          const stdout = await executeFile(interpreter.executable, [FIND_BINARY_SCRIPT_PATH], cwd);
           tyBinaryPath = stdout.trim();
         } catch (err) {
           vscode.window
@@ -227,11 +232,12 @@ async function createServer(
   environmentProvider: EnvironmentProvider | null,
   middleware: TyMiddleware,
 ): Promise<ServerState> {
+  const cwd = settings.cwd.uri.fsPath;
   const activeEnvironment =
     (await environmentProvider?.getActiveEnvironment(settings.cwd.uri)) ?? null;
   const binaryResolution = await findBinaryPath(settings, environmentProvider, activeEnvironment);
   const binaryPath = binaryResolution.path;
-  const version = await getTyVersion(binaryPath);
+  const version = await getTyVersion(binaryPath, cwd);
   const initializationOptions = getInitializationOptions(serverId, version);
   logger.info(`Initialization options: ${JSON.stringify(initializationOptions, null, 4)}`);
 
@@ -241,7 +247,7 @@ async function createServer(
   const serverOptions = {
     command: binaryPath,
     args: serverArgs,
-    options: { cwd: settings.cwd.uri.fsPath, env: process.env },
+    options: { cwd, env: process.env },
   };
 
   const clientOptions: LanguageClientOptions = {
@@ -266,9 +272,9 @@ async function createServer(
 }
 
 /** Get the version before initialization, when startup-only options must be filtered. */
-async function getTyVersion(executable: string): Promise<Version | null> {
+async function getTyVersion(executable: string, cwd: string): Promise<Version | null> {
   try {
-    const stdout = await executeFile(executable, ["--version"]);
+    const stdout = await executeFile(executable, ["--version"], cwd);
     const version = stdout.trim().split(" ")[1];
     // Development builds can report a Ruff tag, which is not a ty version.
     if (version != null && !version.startsWith("ruff/")) {
