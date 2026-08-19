@@ -26,7 +26,7 @@ The ty server's experimental Language Server Protocol extensions are documented 
 
 ## Release
 
-- Run `just release` (or manually `uv run --python=3.8 scripts/release.py`).
+- Run `just release` (or manually `uv run scripts/release.py`).
   (Run `just release --help` for information on what this script does,
   and its various options.)
 - Check the changes the script made, and commit the changes. Note that the version number
