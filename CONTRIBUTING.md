@@ -4,6 +4,7 @@
 
 ### Getting Started
 
+- Install [Node.js](https://nodejs.org/).
 - Install [`uv`](https://github.com/astral-sh/uv).
 - Install [`just`](https://github.com/casey/just), or see the `justfile` for corresponding commands.
 - Install development dependencies (`just install`).

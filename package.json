@@ -29,7 +29,8 @@
     "ty"
   ],
   "engines": {
-    "vscode": "^1.91.0"
+    "vscode": "^1.91.0",
+    "npm": ">=11.10.0"
   },
   "categories": [
     "Programming Languages"

@@ -22,6 +22,10 @@ jobs:
         with:
           activate-environment: true
           python-version: 3.13
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.19.0"
+          package-manager-cache: false
       - name: Install dependencies
         run: just install
       - name: Run checks
