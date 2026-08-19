@@ -87,7 +87,9 @@ def get_ty_versions(
 
     dependencies = {
         requirement.name: requirement.specifier
-        for requirement in map(Requirement, pyproject_toml["project"]["dependencies"])
+        for requirement in map(
+            Requirement, pyproject_toml["dependency-groups"]["bundle"]
+        )
     }
 
     return Versions(
@@ -113,7 +115,9 @@ def update_pyproject_toml(versions: Versions) -> None:
 
     project_table["version"] = tomlkit.string(str(versions.new_vscode_version))
 
-    existing_dependencies = project_table["dependencies"]
+    dependency_groups = pyproject_toml["dependency-groups"]
+    assert isinstance(dependency_groups, tomlkit.items.Table)
+    existing_dependencies = dependency_groups["bundle"]
     assert isinstance(existing_dependencies, tomlkit.items.Array)
     assert len(existing_dependencies) == 1
     existing_dependencies[0] = tomlkit.string(f"ty=={versions.latest_ty}")
@@ -167,8 +171,6 @@ def update_readme(latest_ty: Version) -> None:
 
 def lock_requirements() -> None:
     """Update this package's lockfiles."""
-    for path in ["requirements.txt"]:
-        Path(path).unlink()
     subprocess.run(["just", "lock"], check=True)
 
 

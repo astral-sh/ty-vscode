@@ -18,8 +18,6 @@
 .prettierrc.json
 .yarnrc
 justfile
-requirements-dev.txt
-requirements.txt
 scripts/
 src/
 tests/
@@ -29,4 +27,3 @@ tsconfig.json
 webpack.config.js
 eslint.config.mjs
 pyproject.toml
-.mypy_cache/

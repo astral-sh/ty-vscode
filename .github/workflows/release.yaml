@@ -30,21 +30,23 @@ jobs:
         with:
           fetch-depth: ${{ env.FETCH_DEPTH }}
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          python-version: "3.x"
+          version: "0.12.1"
+          python-version: "3.12"
+          enable-cache: false
       - name: Generate Build ID (release)
         if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || (github.event_name == 'release' && !github.event.release.prerelease) }}
         id: release-build-id-generator
         run: |
-          release_build_id="$(python -m build.generate_build_id)"
+          release_build_id="$(uv run --no-project python -m build.generate_build_id)"
           echo "release-build-id: ${release_build_id}"
           echo "release-build-id=${release_build_id}" >> "$GITHUB_OUTPUT"
       - name: Generate Build ID (nightly)
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || (github.event_name == 'release' && github.event.release.prerelease) }}
         id: nightly-build-id-generator
         run: |
-          nightly_build_id="$(python -m build.generate_build_id --pre-release)"
+          nightly_build_id="$(uv run --no-project python -m build.generate_build_id --pre-release)"
           echo "nightly-build-id: ${nightly_build_id}"
           echo "nightly-build-id=${nightly_build_id}" >> "$GITHUB_OUTPUT"
 
@@ -65,7 +67,6 @@ jobs:
           - os: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
             code-target: linux-arm64
-            arch: aarch64
           - os: ubuntu-22.04
             target: arm-unknown-linux-gnueabihf
             code-target: linux-armhf
@@ -79,11 +80,9 @@ jobs:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-musl
             code-target: alpine-x64
-            arch: x86_64
           - os: ubuntu-22.04
             target: aarch64-unknown-linux-musl
             code-target: alpine-arm64
-            arch: aarch64
 
     name: Build (${{ matrix.target }})
     needs: ["build-id"]
@@ -97,48 +96,34 @@ jobs:
           fetch-depth: ${{ env.FETCH_DEPTH }}
           persist-credentials: false
 
-      # Install Python dependencies (including ty's native binary).
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          python-version: "3.x"
+          version: "0.12.1"
+          python-version: "3.12"
+          enable-cache: false
+      - name: Export bundled dependencies
+        run: uv export --locked --only-group bundle --no-header --no-annotate --output-file ./.github/bundled-requirements.txt
 
-      # ARM builds on macOS, which should select ty's universal binary.
-      - run: arch -arm64 python -m pip install -t ./bundled/libs --implementation py --no-deps --upgrade -r ./requirements.txt
-        if: ${{ startsWith(matrix.os, 'macos') && startsWith(matrix.target, 'aarch64') }}
+      - name: Install bundled dependencies
+        if: ${{ matrix.target != 'arm-unknown-linux-gnueabihf' }}
+        run: uv pip sync --require-hashes ./.github/bundled-requirements.txt --target ./bundled/libs --python-version 3.12 --python-platform ${{ matrix.target }}
 
-      # x86_64 builds on macOS, which should select ty's x86_64 binary.
-      - run: arch -x86_64 python -m pip install -t ./bundled/libs --implementation py --no-deps --upgrade -r ./requirements.txt
-        if: ${{ startsWith(matrix.os, 'macos') && startsWith(matrix.target, 'x86_64') }}
-
-      # ARM builds on Ubuntu, which should select ty's ARM binary.
+      # uv does not yet accept ARMv7 as an explicit target platform, so run
+      # the checksum-verified ARMv7 uv binary under emulation instead.
       - uses: uraimo/run-on-arch-action@f9b26e3a1a408d5fd530d20c17b9f3f4428ff8d9 # v3.1.0
-        if: ${{ startsWith(matrix.os, 'ubuntu') && !startsWith(matrix.target, 'x86_64') && !endsWith(matrix.target, 'musl') }}
+        if: ${{ matrix.target == 'arm-unknown-linux-gnueabihf' }}
         with:
           arch: ${{ matrix.arch }}
           distro: ubuntu20.04
           install: |
             apt-get update
-            apt-get install -y --no-install-recommends python3 python3-pip
-            pip3 install -U pip
+            apt-get install -y --no-install-recommends ca-certificates curl python3
+            curl --proto '=https' --tlsv1.2 -LsSf -o /tmp/uv.tar.gz https://github.com/astral-sh/uv/releases/download/0.12.1/uv-armv7-unknown-linux-gnueabihf.tar.gz
+            echo "bfca453bdf4ea6ce149f9d5be0589fc2e17a22d434c66c2f374a802dabb13cb5  /tmp/uv.tar.gz" | sha256sum --check -
+            tar -xzf /tmp/uv.tar.gz -C /tmp
+            install -m 0755 /tmp/uv-armv7-unknown-linux-gnueabihf/uv /usr/local/bin/uv
           run: |
-            python3 -m pip install -t ./bundled/libs --implementation py --no-deps --upgrade -r ./requirements.txt
-
-      # Alpine builds, which should select ty's musl binaries.
-      - uses: jirutka/setup-alpine@ae3b3ddba35054804fc4a3507b519fa7e8152050 # v1.4.1
-        if: ${{ startsWith(matrix.os, 'ubuntu') && endsWith(matrix.target, 'musl') }}
-        with:
-          arch: ${{ matrix.arch }}
-      - shell: alpine.sh --root {0}
-        if: ${{ startsWith(matrix.os, 'ubuntu') && endsWith(matrix.target, 'musl') }}
-        run: |
-          apk add --no-cache python3 py3-pip
-          python3 -m pip install -t ./bundled/libs --implementation py --no-deps --upgrade -r ./requirements.txt
-
-      # Every other architecture, which should defer to `pip` without any special treatment.
-      - run: python -m pip install -t ./bundled/libs --implementation py --no-deps --upgrade -r ./requirements.txt
-        if: ${{ !startsWith(matrix.os, 'macos')
-          && !(startsWith(matrix.os, 'ubuntu') && !startsWith(matrix.target, 'x86_64') && !endsWith(matrix.target, 'musl'))
-          && !(startsWith(matrix.os, 'ubuntu') && endsWith(matrix.target, 'musl')) }}
+            uv pip sync --require-hashes ./.github/bundled-requirements.txt --target ./bundled/libs --python-version 3.12
 
       # Install Node.
       - name: Install Node.js
@@ -155,14 +140,14 @@ jobs:
         if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || (github.event_name == 'release' && !github.event.release.prerelease) }}
         shell: bash
         run: |
-          python -m build.update_ext_version --build-id "${BUILD_ID}" --for-publishing
+          uv run --no-project python -m build.update_ext_version --build-id "${BUILD_ID}" --for-publishing
         env:
           BUILD_ID: ${{ needs.build-id.outputs.release-build-id }}
       - name: Set Build ID (nightly)
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || (github.event_name == 'release' && github.event.release.prerelease) }}
         shell: bash
         run: |
-          python -m build.update_ext_version --build-id "${BUILD_ID}" --for-publishing --pre-release
+          uv run --no-project python -m build.update_ext_version --build-id "${BUILD_ID}" --for-publishing --pre-release
         env:
           BUILD_ID: ${{ needs.build-id.outputs.nightly-build-id }}
 
@@ -170,11 +155,11 @@ jobs:
       - name: Package Extension (release)
         if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || (github.event_name == 'release' && !github.event.release.prerelease) }}
         shell: bash
-        run: npx vsce package -o "./dist/ty-${{ matrix.code-target }}.vsix" --target ${{ matrix.code-target }}
+        run: npx --offline @vscode/vsce@3.9.2 package -o "./dist/ty-${{ matrix.code-target }}.vsix" --target ${{ matrix.code-target }}
       - name: Package Extension (nightly)
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || (github.event_name == 'release' && github.event.release.prerelease) }}
         shell: bash
-        run: npx vsce package -o "./dist/ty-${{ matrix.code-target }}.vsix" --target ${{ matrix.code-target }} --pre-release
+        run: npx --offline @vscode/vsce@3.9.2 package -o "./dist/ty-${{ matrix.code-target }}.vsix" --target ${{ matrix.code-target }} --pre-release
 
       # Upload the extension.
       - name: Upload artifacts
@@ -246,10 +231,10 @@ jobs:
       # Publish to the Code Marketplace.
       - name: Publish Extension (Code Marketplace, release)
         if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || (github.event_name == 'release' && !github.event.release.prerelease) }}
-        run: npx vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ty-*.vsix --skip-duplicate
+        run: npx --offline @vscode/vsce@3.9.2 publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ty-*.vsix --skip-duplicate
       - name: Publish Extension (Code Marketplace, nightly)
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || (github.event_name == 'release' && github.event.release.prerelease) }}
-        run: npx vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ty-*.vsix --pre-release --skip-duplicate
+        run: npx --offline @vscode/vsce@3.9.2 publish --pat ${{ secrets.MARKETPLACE_TOKEN }} --packagePath ./dist/ty-*.vsix --pre-release --skip-duplicate
 
   publish-openvsx:
     name: "Publish (OpenVSX)"
@@ -313,9 +298,9 @@ jobs:
       # Publish to OpenVSX.
       - name: Publish Extension (OpenVSX, release)
         if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.prerelease) || (github.event_name == 'release' && !github.event.release.prerelease) }}
-        run: npx ovsx publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ty-*.vsix --skip-duplicate
+        run: npx --offline ovsx@1.1.0 publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ty-*.vsix --skip-duplicate
         timeout-minutes: 2
       - name: Publish Extension (OpenVSX, nightly)
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || (github.event_name == 'release' && github.event.release.prerelease) }}
-        run: npx ovsx publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ty-*.vsix --pre-release --skip-duplicate
+        run: npx --offline ovsx@1.1.0 publish --pat ${{ secrets.OPENVSX_TOKEN }} --packagePath ./dist/ty-*.vsix --pre-release --skip-duplicate
         timeout-minutes: 2

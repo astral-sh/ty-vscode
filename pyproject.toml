@@ -2,10 +2,25 @@
 name = "ty-vscode"
 version = "2026.66.0"
 requires-python = ">=3.8"
-dependencies = ["ty==0.0.69"]
+
+[dependency-groups]
+bundle = ["ty==0.0.69"]
+dev = [
+    { include-group = "bundle" },
+    "packaging==24.2",
+    "requests==2.33.0",
+    "rich-argparse==1.6.0",
+    "ruff==0.16.2",
+    "tomli==2.1.0",
+    "tomlkit==0.13.2",
+    "types-requests==2.33.0.20260712",
+]
 
 [tool.uv]
 exclude-newer = "P7D"
+
+[tool.uv.dependency-groups]
+dev = { requires-python = ">=3.12" }
 
 [tool.ruff]
 line-length = 88

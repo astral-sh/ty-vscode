@@ -17,7 +17,7 @@ def find_ty_binary_path() -> Optional[Path]:
         user_scheme = sysconfig.get_preferred_scheme("user")
     elif os.name == "nt":
         user_scheme = "nt_user"
-    elif sys.platform == "darwin" and sys._framework:
+    elif sys.platform == "darwin" and getattr(sys, "_framework", None):
         user_scheme = "osx_framework_user"
     else:
         user_scheme = "posix_user"
