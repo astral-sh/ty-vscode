@@ -17,18 +17,20 @@ install: setup
 
 # Check for code quality and type errors
 check:
-  uvx ruff check ./bundled/tool ./build ./scripts
-  uvx ruff format --check ./bundled/tool ./build ./scripts
-  uvx --with=types-requests --with=tomli --with=tomlkit --with=packaging --with=rich-argparse mypy scripts/release.py --strict --warn-unreachable --enable-error-code=possibly-undefined --enable-error-code=redundant-expr --enable-error-code=truthy-bool
-  uvx mypy bundled/tool/find_ty_binary_path.py --strict --warn-unreachable --enable-error-code=possibly-undefined --enable-error-code=redundant-expr --enable-error-code=truthy-bool
+  uv run --dev ruff check ./bundled/tool ./build ./scripts
+  uv run --dev ruff format --check ./bundled/tool ./build ./scripts
+  uv run --dev ty check ./scripts/release.py
+  uv run --dev ty check bundled/tool/find_ty_binary_path.py
   npm run fmt-check
   npm run lint
   npm run tsc
 
 # Format the code
 fmt:
-  uvx ruff check --fix ./bundled/tool ./build ./scripts
-  uvx ruff format ./bundled/tool ./build ./scripts
+  uv run --dev ruff check --fix ./bundled/tool ./build ./scripts
+  uv run --dev ruff format ./bundled/tool ./build ./scripts
+  uv run --dev ty check --fix ./scripts/release.py
+  uv run --dev ty check --fix bundled/tool/find_ty_binary_path.py
   npm run fmt
 
 # Build the VS Code package
