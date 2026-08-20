@@ -12,9 +12,6 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -26,6 +23,15 @@ jobs:
           node-version: "24.19.0"
           package-manager-cache: false
       - name: Install dependencies
-        run: just install
+        run: |
+          uv pip sync --require-hashes ./requirements.txt --target ./bundled/libs
+          npm ci --ignore-scripts
       - name: Run checks
-        run: just check
+        run: |
+          uv run --dev ruff check ./bundled/tool ./build ./scripts
+          uv run --dev ruff format --check ./bundled/tool ./build ./scripts
+          uv tool run --with-requirements ./scripts/release.py ty check ./scripts/release.py
+          uv run --dev ty check bundled/tool/find_ty_binary_path.py
+          npm run fmt-check
+          npm run lint
+          npm run tsc
