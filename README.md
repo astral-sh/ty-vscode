@@ -90,8 +90,10 @@ recommend one of the following:
 
 When either extension is available, ty can find an executable installed in the active Python
 environment. You can also set `ty.interpreter` to a Python executable or environment directory
-without either extension. If no ty executable is found in a Python environment, the extension
-checks `PATH` before using its bundled ty executable.
+without either extension. When no interpreter is configured or selected, ty looks for an executable
+in the [Python environment](https://docs.astral.sh/ty/modules/#python-environment) configured by
+`environment.python` or a local `.venv`. If no executable is found,
+the extension checks `PATH` before using its bundled ty executable.
 
 Reload VS Code after installing or enabling either extension.
 
