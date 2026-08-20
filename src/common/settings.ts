@@ -18,7 +18,7 @@ export interface InitializationOptions {
   logLevel?: LogLevel;
   logFile?: string;
   untrustedWorkspace?: boolean;
-  experimental: {
+  experimental?: {
     useUv: UseUv;
   };
 }
@@ -80,10 +80,12 @@ export function getInitializationOptions(
   const options: InitializationOptions = {
     logLevel: getOptionalGlobalValue<LogLevel>(config, "logLevel"),
     logFile: getOptionalGlobalValue<string>(config, "logFile"),
-    experimental: {
-      useUv: config.get<UseUv>("experimental.useUv") ?? "off",
-    },
   };
+
+  const useUv = config.get<UseUv | null>("experimental.useUv");
+  if (useUv != null) {
+    options.experimental = { useUv };
+  }
 
   // Unknown versions must still receive the trust restriction. Only omit it when
   // we know the server is too old to support it.

@@ -111,7 +111,7 @@
           "type": "string"
         },
         "ty.experimental.useUv": {
-          "default": "off",
+          "default": null,
           "markdownDescription": "Control how ty uses uv.",
           "enum": [
             "off",
