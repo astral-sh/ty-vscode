@@ -169,7 +169,25 @@ def lock_requirements() -> None:
     """Update this package's lockfiles."""
     for path in ["requirements.txt"]:
         Path(path).unlink()
-    subprocess.run(["just", "lock"], check=True)
+    subprocess.run(["uv", "lock"], check=True)
+    subprocess.run(
+        [
+            "uv",
+            "export",
+            "--format",
+            "requirements-txt",
+            "--no-dev",
+            "--no-emit-project",
+            "--locked",
+            "--output-file",
+            "./requirements.txt",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        ["npm", "install", "--package-lock-only", "--ignore-scripts"],
+        check=True,
+    )
 
 
 def commit_changes(versions: Versions) -> None:

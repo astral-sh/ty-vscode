@@ -6,10 +6,24 @@
 
 - Install [Node.js](https://nodejs.org/).
 - Install [`uv`](https://github.com/astral-sh/uv).
-- Install [`just`](https://github.com/casey/just), or see the `justfile` for corresponding commands.
-- Install development dependencies (`just install`).
-- To automatically format the codebase, run: `just fmt`.
-- To run lint and type checks, run: `just check`.
+- Install development dependencies:
+
+  ```console
+  $ uv pip sync --require-hashes ./requirements.txt --target ./bundled/libs
+  $ npm ci --ignore-scripts
+  ```
+
+- To automatically format the codebase, run:
+
+  ```console
+  $ npm run fix
+  ```
+
+- To run lint and type checks, run:
+
+  ```console
+  $ npm run check
+  ```
 
 To run the extension, navigate to `src/extension.ts` and run (`F5`). You should see the extension output
 and the language server log messages in the debug console under "ty" and "ty Language Server" respectively.
@@ -26,8 +40,8 @@ The ty server's experimental Language Server Protocol extensions are documented 
 
 ## Release
 
-- Run `just release` (or manually `uv run scripts/release.py`).
-  (Run `just release --help` for information on what this script does,
+- Run `uv run scripts/release.py`.
+  (Run `uv run scripts/release.py --help` for information on what this script does,
   and its various options.)
 - Check the changes the script made, and commit the changes. Note that the version number
   increases in steps of two by default (e.g. `2025.5.0 -> 2025.7.0`). Odd-numbered versions
