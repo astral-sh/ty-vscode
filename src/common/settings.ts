@@ -10,6 +10,7 @@ import { logger } from "./logger";
 
 export type Version = { major: number; minor: number; patch: number };
 type ImportStrategy = "fromEnvironment" | "useBundled";
+type UseUv = "off" | "scripts" | "on";
 
 type LogLevel = "error" | "warn" | "info" | "debug" | "trace";
 
@@ -17,6 +18,9 @@ export interface InitializationOptions {
   logLevel?: LogLevel;
   logFile?: string;
   untrustedWorkspace?: boolean;
+  experimental?: {
+    useUv: UseUv;
+  };
 }
 
 export interface ExtensionSettings {
@@ -77,6 +81,11 @@ export function getInitializationOptions(
     logLevel: getOptionalGlobalValue<LogLevel>(config, "logLevel"),
     logFile: getOptionalGlobalValue<string>(config, "logFile"),
   };
+
+  const useUv = config.get<UseUv | null>("experimental.useUv");
+  if (useUv != null) {
+    options.experimental = { useUv };
+  }
 
   // Unknown versions must still receive the trust restriction. Only omit it when
   // we know the server is too old to support it.
