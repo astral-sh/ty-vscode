@@ -4,7 +4,8 @@ default:
 
 # Lock the Python and Node.js dependencies
 lock:
-  uv pip compile --python-version 3.8 --generate-hashes -o ./requirements.txt ./pyproject.toml
+  uv lock
+  uv export --format requirements-txt --no-dev --no-emit-project --locked --output-file ./requirements.txt
   npm install --package-lock-only --ignore-scripts
 
 # Install the dependencies for the bundled tool
