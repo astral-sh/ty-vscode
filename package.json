@@ -56,6 +56,7 @@
   ],
   "main": "./dist/extension.js",
   "scripts": {
+    "check": "uv run --dev ruff check ./bundled/tool ./build ./scripts && uv run --dev ruff format --check ./bundled/tool ./build ./scripts && uv tool run --with-requirements ./scripts/release.py ty check ./scripts/release.py && uv run --dev ty check bundled/tool/find_ty_binary_path.py && npm run fmt-check && npm run lint && npm run tsc",
     "fmt": "prettier -w .",
     "fmt-check": "prettier --check .",
     "lint": "eslint src --ext ts --max-warnings=0",

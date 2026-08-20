@@ -26,13 +26,7 @@
 - To run lint and type checks, run:
 
   ```console
-  $ uv run --dev ruff check ./bundled/tool ./build ./scripts
-  $ uv run --dev ruff format --check ./bundled/tool ./build ./scripts
-  $ uv tool run --with-requirements ./scripts/release.py ty check ./scripts/release.py
-  $ uv run --dev ty check bundled/tool/find_ty_binary_path.py
-  $ npm run fmt-check
-  $ npm run lint
-  $ npm run tsc
+  $ npm run check
   ```
 
 To run the extension, navigate to `src/extension.ts` and run (`F5`). You should see the extension output

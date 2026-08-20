@@ -27,11 +27,4 @@ jobs:
           uv pip sync --require-hashes ./requirements.txt --target ./bundled/libs
           npm ci --ignore-scripts
       - name: Run checks
-        run: |
-          uv run --dev ruff check ./bundled/tool ./build ./scripts
-          uv run --dev ruff format --check ./bundled/tool ./build ./scripts
-          uv tool run --with-requirements ./scripts/release.py ty check ./scripts/release.py
-          uv run --dev ty check bundled/tool/find_ty_binary_path.py
-          npm run fmt-check
-          npm run lint
-          npm run tsc
+        run: npm run check
