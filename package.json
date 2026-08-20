@@ -120,7 +120,7 @@
             "useBundled"
           ],
           "enumDescriptions": [
-            "Use `ty` from the active Python environment if the Python Environments or Python extension is available, then from `PATH`, falling back to the bundled version.",
+            "Look for `ty` using the configured interpreter, or in the active Python environment when the Python Environments or Python extension is available. Fall back to `PATH`, then the bundled version.",
             "Always use the bundled version of `ty`."
           ],
           "scope": "window",
@@ -152,7 +152,7 @@
         },
         "ty.interpreter": {
           "default": null,
-          "markdownDescription": "Path to a Python interpreter used to find the ty executable. This setting requires the Python Environments or Python extension.",
+          "markdownDescription": "Path to a Python executable or environment directory used to find the ty executable. Python 3.8 or later is required. This setting works without the Python Environments or Python extension.",
           "scope": "window",
           "type": "string"
         },

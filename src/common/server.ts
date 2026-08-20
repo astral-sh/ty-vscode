@@ -1,7 +1,7 @@
 import * as fsapi from "fs-extra";
 import { execFile } from "node:child_process";
 import { platform } from "node:os";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import * as vscode from "vscode";
 import { type Disposable, l10n, LanguageStatusSeverity, type LogOutputChannel } from "vscode";
 import {
@@ -159,6 +159,16 @@ export async function findBinaryPath(
         );
       }
     }
+  } else if (userSpecifiedInterpreterPath != null) {
+    logger.info(`Looking for ty using 'ty.interpreter': '${userSpecifiedInterpreterPath}'`);
+    try {
+      const executable = await resolvePythonExecutable(userSpecifiedInterpreterPath);
+      logger.info(`Resolved Python executable for ty lookup: '${executable}'`);
+      const stdout = await executeFile(executable, [FIND_BINARY_SCRIPT_PATH], cwd);
+      tyBinaryPath = stdout.trim();
+    } catch (err) {
+      logger.warn(`Could not find ty using 'ty.interpreter': ${err}`);
+    }
   }
 
   if (interpreter != null) {
@@ -221,6 +231,40 @@ export async function findBinaryPath(
     path: BUNDLED_EXECUTABLE,
     dependsOnActiveInterpreter,
   };
+}
+
+async function resolvePythonExecutable(interpreterPath: string): Promise<string> {
+  const stats = await fsapi.stat(interpreterPath).catch(() => undefined);
+  if (stats?.isFile()) {
+    return interpreterPath;
+  }
+  if (!stats?.isDirectory()) {
+    throw new Error(`'${interpreterPath}' is not a file or directory.`);
+  }
+
+  // Match the Python extensions' native resolver, including MSYS2's bin layout on Windows.
+  // https://github.com/microsoft/python-environment-tools/blob/4b7a780391ec7d447689a740be5073fbd8968a3d/crates/pet-python-utils/src/executable.rs#L49-L75
+  const candidates =
+    platform() === "win32"
+      ? [
+          "Scripts/python.exe",
+          "Scripts/python3.exe",
+          "bin/python.exe",
+          "bin/python3.exe",
+          "python.exe",
+          "python3.exe",
+        ]
+      : ["bin/python", "bin/python3", "python", "python3"];
+
+  for (const candidate of candidates) {
+    const executable = join(interpreterPath, candidate);
+    const stats = await fsapi.stat(executable).catch(() => undefined);
+    if (stats?.isFile()) {
+      return executable;
+    }
+  }
+
+  throw new Error(`No Python executable found in '${interpreterPath}'.`);
 }
 
 async function createServer(
