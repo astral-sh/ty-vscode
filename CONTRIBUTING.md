@@ -16,11 +16,7 @@
 - To automatically format the codebase, run:
 
   ```console
-  $ uv run --dev ruff check --fix ./bundled/tool ./build ./scripts
-  $ uv run --dev ruff format ./bundled/tool ./build ./scripts
-  $ uv tool run --with-requirements ./scripts/release.py ty check --fix ./scripts/release.py
-  $ uv run --dev ty check --fix bundled/tool/find_ty_binary_path.py
-  $ npm run fmt
+  $ npm run fix
   ```
 
 - To run lint and type checks, run:
