@@ -1,11 +1,12 @@
 [project]
 name = "ty-vscode"
-version = "2026.66.0"
+version = "2026.68.0"
 requires-python = ">=3.8"
-dependencies = ["ty==0.0.69"]
+dependencies = ["ty==0.0.74"]
 
 [tool.uv]
 exclude-newer = "P7D"
+exclude-newer-package = { ty = false }
 
 [tool.ruff]
 line-length = 88
