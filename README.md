@@ -61,8 +61,10 @@ in VS code.
 ## Untrusted Workspace
 
 The extension supports [untrusted workspace](https://code.visualstudio.com/docs/editor/workspace-trust).
-For untrusted workspaces, the extension always uses the bundled ty executable, ignoring the following settings:
+For untrusted workspaces, the extension always uses the bundled ty executable and disables uv integration,
+ignoring the following settings:
 
+- `ty.experimental.useUv`
 - [`ty.importStrategy`](https://docs.astral.sh/ty/reference/editor-settings#importstrategy)
 - [`ty.interpreter`](https://docs.astral.sh/ty/reference/editor-settings#interpreter)
 - [`ty.path`](https://docs.astral.sh/ty/reference/editor-settings#path)
