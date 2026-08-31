@@ -1,8 +1,8 @@
 [project]
 name = "ty-vscode"
-version = "2026.68.0"
+version = "2026.70.0"
 requires-python = ">=3.8"
-dependencies = ["ty==0.0.74"]
+dependencies = ["ty==0.0.76"]
 
 [tool.uv]
 exclude-newer = "P7D"
