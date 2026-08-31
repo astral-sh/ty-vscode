@@ -40,35 +40,12 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.x"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - name: Validate release metadata
         id: metadata
         shell: bash
         run: |
-          python - <<'PY'
-          import json
-          import os
-          import re
-          import tomllib
-          from pathlib import Path
-
-          version = os.environ["VERSION"]
-          if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version):
-              raise SystemExit(f"Invalid extension version: {version!r}")
-          package = json.loads(Path("package.json").read_text())
-          project = tomllib.loads(Path("pyproject.toml").read_text())["project"]
-          for name, metadata in [("package.json", package), ("pyproject.toml", project)]:
-              if metadata["version"] != version:
-                  raise SystemExit(f"Requested version {version} does not match {name} version {metadata['version']}")
-          prerelease = int(version.split(".")[1]) % 2 != 0
-          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-              print(f"prerelease={str(prerelease).lower()}", file=output)
-          PY
-
-          if git rev-parse --verify --quiet "refs/tags/${VERSION}" >/dev/null; then
-            echo "::error::Tag ${VERSION} already exists"
-            exit 1
-          fi
-
+          uv run --locked scripts/release.py --validate "$VERSION" >> "$GITHUB_OUTPUT"
           echo "Preparing ${VERSION} from ${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"
         env:
           VERSION: ${{ inputs.version }}
