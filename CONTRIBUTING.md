@@ -40,19 +40,20 @@ The ty server's experimental Language Server Protocol extensions are documented 
 
 ## Release
 
-- Run `uv run scripts/release.py`.
-  (Run `uv run scripts/release.py --help` for information on what this script does,
-  and its various options.)
-- Check the changes the script made, and commit the changes. Note that the version number
-  increases in steps of two by default (e.g. `2025.5.0 -> 2025.7.0`). Odd-numbered versions
-  are pre-releases, even-numbered versions are stable releases.
-- Create a new PR and merge it.
-- [Create a new Release](https://github.com/astral-sh/ty-vscode/releases/new):
-  - Enter `x.x.x` (where `x.x.x` is the new version) into the _Choose a tag_ selector.
-  - Click "Create new tag: ... on publish".
-  - Click _Generate release notes_, curate the release notes and publish the release.
-  - Be sure to select _Set as a pre-release_ if this is a pre-release (odd minor version).
-  - Click _Publish release_.
-- The [Release workflow](https://github.com/astral-sh/ty-vscode/actions/workflows/release.yaml)
-  should automatically pick up the new release and publish the extension to the VS Code marketplace.
-  Note that it may take a few minutes after the workflow completes for the extension to be available.
+1. Run the [Prepare release workflow](https://github.com/astral-sh/ty-vscode/actions/workflows/release-prepare.yaml)
+   from `main` with the exact extension version, without a leading `v`.
+   Optionally specify the bundled ty version; it defaults to the latest version on PyPI.
+2. Review and merge the generated release PR. The workflow runs `scripts/release.py` to update
+   the extension version, bundled ty version, README, and lockfiles.
+3. Run the [Release workflow](https://github.com/astral-sh/ty-vscode/actions/workflows/release.yaml)
+   from `main` with the same extension version.
+4. Approve the protected `release-gate` deployment after all platform builds succeed.
+
+The release workflow checks that the requested version matches `package.json` and `pyproject.toml`
+and that its tag does not already exist. Odd minor versions are pre-releases and retain timestamped
+nightly build IDs; even minor versions are stable releases. Publication to the VS Code Marketplace
+and OpenVSX uses the `release` environment. After both publications succeed, the workflow creates
+the `<version>` tag and GitHub release, automatically marking odd minor versions as pre-releases.
+Review and curate the generated GitHub release notes as needed.
+
+It may take a few minutes after the workflow completes for the extension to be available.
