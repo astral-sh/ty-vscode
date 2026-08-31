@@ -49,11 +49,9 @@ The ty server's experimental Language Server Protocol extensions are documented 
    from `main` with the same extension version.
 4. Approve the protected `release-gate` deployment after all platform builds succeed.
 
-The release workflow checks that the requested version matches `package.json` and `pyproject.toml`
-and that its tag does not already exist. Odd minor versions are pre-releases and retain timestamped
-nightly build IDs; even minor versions are stable releases. Publication to the VS Code Marketplace
-and OpenVSX uses the `release` environment. After both publications succeed, the workflow creates
-the `<version>` tag and GitHub release, automatically marking odd minor versions as pre-releases.
-Review and curate the generated GitHub release notes as needed.
+Odd minor versions are pre-releases and retain timestamped nightly build IDs; even minor versions are stable releases.
+
+After both publications succeed, the workflow creates the `<version>` tag and GitHub release, automatically marking odd
+minor versions as pre-releases. Review and curate the generated GitHub release notes as needed.
 
 It may take a few minutes after the workflow completes for the extension to be available.
