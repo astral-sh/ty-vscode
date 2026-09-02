@@ -231,8 +231,14 @@ def prepare_release(versions: Versions, *, prepare_pr: bool) -> None:
 
 def validate_release(version: str) -> bool:
     """Validate release metadata and return whether this is a pre-release."""
-    if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version):
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
         raise SystemExit(f"Invalid extension version: {version!r}")
+
+    parsed_version = Version(version)
+    if str(parsed_version) != version:
+        raise SystemExit(
+            f"Requested version {version} was normalized to {parsed_version}"
+        )
 
     with PACKAGE_JSON_PATH.open("rb") as package_file:
         package = json.load(package_file)
@@ -257,7 +263,7 @@ def validate_release(version: str) -> bool:
     if tag:
         raise SystemExit(f"Tag {version} already exists")
 
-    return Version(version).minor % 2 != 0
+    return parsed_version.minor % 2 != 0
 
 
 def main() -> None:
