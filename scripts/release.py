@@ -236,6 +236,9 @@ def prepare_release(versions: Versions, *, prepare_pr: bool) -> None:
         commit_changes(versions)
 
 
+VERSION_REGEX = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
+
+
 def validate_version_increase(version: Version) -> None:
     """Require a version greater than every existing release tag."""
     tags = subprocess.run(
@@ -244,9 +247,7 @@ def validate_version_increase(version: Version) -> None:
         capture_output=True,
         text=True,
     ).stdout.splitlines()
-    versions = [
-        Version(tag) for tag in tags if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", tag)
-    ]
+    versions = [Version(tag) for tag in tags if VERSION_REGEX.fullmatch(tag)]
     if versions and version <= (latest_version := max(versions)):
         raise SystemExit(
             f"Requested version {version} must be greater than "
@@ -256,7 +257,7 @@ def validate_version_increase(version: Version) -> None:
 
 def validate_release(version: str) -> bool:
     """Validate release metadata and return whether this is a pre-release."""
-    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
+    if not VERSION_REGEX.fullmatch(version):
         raise SystemExit(f"Invalid extension version: {version!r}")
 
     parsed_version = Version(version)
