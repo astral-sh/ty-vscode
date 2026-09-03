@@ -51,6 +51,8 @@ The ty server's experimental Language Server Protocol extensions are documented 
 
 Odd minor versions are pre-releases and retain timestamped nightly build IDs; even minor versions are stable releases.
 
+The requested extension version must be greater than the checked-in version when preparing a release, and greater than all existing release tags when preparing or publishing a release.
+
 After both publications succeed, the workflow creates the `<version>` tag and GitHub release, automatically marking odd
 minor versions as pre-releases. Review and curate the generated GitHub release notes as needed.
 

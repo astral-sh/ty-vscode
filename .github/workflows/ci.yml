@@ -28,3 +28,5 @@ jobs:
           npm ci --ignore-scripts
       - name: Run checks
         run: npm run check
+      - name: Test release script
+        run: uv run --with-requirements scripts/release.py python -m unittest discover -s scripts

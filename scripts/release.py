@@ -87,6 +87,13 @@ def get_ty_versions(
         minor = existing_ty_vscode_version.minor + 2
         new_ty_vscode_version = Version(f"{major}.{minor}.0")
 
+    if new_ty_vscode_version <= existing_ty_vscode_version:
+        raise SystemExit(
+            f"Requested version {new_ty_vscode_version} must be greater than "
+            f"current version {existing_ty_vscode_version}"
+        )
+    validate_version_increase(new_ty_vscode_version)
+
     dependencies = {
         requirement.name: requirement.specifier
         for requirement in map(Requirement, pyproject_toml["project"]["dependencies"])
@@ -229,6 +236,24 @@ def prepare_release(versions: Versions, *, prepare_pr: bool) -> None:
         commit_changes(versions)
 
 
+def validate_version_increase(version: Version) -> None:
+    """Require a version greater than every existing release tag."""
+    tags = subprocess.run(
+        ["git", "tag", "--list"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    versions = [
+        Version(tag) for tag in tags if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", tag)
+    ]
+    if versions and version <= (latest_version := max(versions)):
+        raise SystemExit(
+            f"Requested version {version} must be greater than "
+            f"latest release {latest_version}"
+        )
+
+
 def validate_release(version: str) -> bool:
     """Validate release metadata and return whether this is a pre-release."""
     if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
@@ -254,14 +279,7 @@ def validate_release(version: str) -> bool:
                 f"{path} version {metadata['version']}"
             )
 
-    tag = subprocess.run(
-        ["git", "tag", "--list", version],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    if tag:
-        raise SystemExit(f"Tag {version} already exists")
+    validate_version_increase(parsed_version)
 
     return parsed_version.minor % 2 != 0
 
