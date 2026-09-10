@@ -11,6 +11,7 @@ import {
   type PythonEnvironmentApi,
   type PythonEnvironment,
 } from "@vscode/python-environments";
+import { getConfiguration } from "./vscodeapi";
 
 export { PYTHON_EXTENSION_ID, PYTHON_ENVIRONMENTS_EXTENSION_ID };
 
@@ -170,6 +171,16 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
 
     if (extension == null) {
       logger.info("The Python Environments extension is not installed or is disabled.");
+      return null;
+    }
+
+    // Match the Python extension's `.get()`-based rollout check before activating the
+    // environment extension, whose own `.inspect()` check can otherwise disagree with it.
+    if (
+      extensions.getExtension(PYTHON_EXTENSION_ID) != null &&
+      !getConfiguration("python").get<boolean>("useEnvironmentsExtension", false)
+    ) {
+      logger.info("The Python extension is not using the Python Environments extension.");
       return null;
     }
 
