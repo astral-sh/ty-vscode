@@ -106,30 +106,46 @@ function indentMessage(indent: string, message: string): string {
 export const logger = new ExtensionLogger();
 
 /**
- * Creates an unformatted server output channel that satisfies the language client's log API.
+ * Creates a shared output channel for language client and server logs.
  *
- * The language client sends each stderr line to `error`, which it also uses for its own errors.
- * Append every message unchanged so ty keeps its timestamps, levels, and multiline formatting.
- * A native log channel would add another log-level filter, which could discard messages enabled
- * by `ty.logLevel`. Client messages use the same channel without an added prefix.
+ * Client messages follow the editor log level, while server stderr is sent to `appendLine`
+ * so ty keeps its timestamps, levels, and multiline formatting. A native log channel would
+ * also filter server logs independently of `ty.logLevel`.
  * See https://github.com/microsoft/vscode-languageserver-node/issues/1754.
  */
 export function createServerOutputChannel(name: string): vscode.LogOutputChannel {
   const channel = vscode.window.createOutputChannel(name, "log");
-  const appendLine = (message: string | Error, ...args: unknown[]): void => {
-    channel.appendLine(util.format(message, ...args));
-  };
+  const logClient =
+    (level: vscode.LogLevel, label: LogLevel) =>
+    (message: string | Error, ...args: unknown[]): void => {
+      const configuredLevel = vscode.env.logLevel;
+      if (configuredLevel === vscode.LogLevel.Off || configuredLevel > level) {
+        return;
+      }
+      channel.appendLine(
+        `${formatLogTimestamp(new Date())} [${label}] ${util.format(message, ...args)}`,
+      );
+    };
 
   return {
     ...channel,
-    logLevel: vscode.LogLevel.Trace,
-    onDidChangeLogLevel: () => ({ dispose() {} }),
-    trace: appendLine,
-    debug: appendLine,
-    info: appendLine,
-    warn: appendLine,
-    error: appendLine,
+    get logLevel() {
+      return vscode.env.logLevel;
+    },
+    onDidChangeLogLevel: vscode.env.onDidChangeLogLevel,
+    trace: logClient(vscode.LogLevel.Trace, "trace"),
+    debug: logClient(vscode.LogLevel.Debug, "debug"),
+    info: logClient(vscode.LogLevel.Info, "info"),
+    warn: logClient(vscode.LogLevel.Warning, "warning"),
+    error: logClient(vscode.LogLevel.Error, "error"),
   };
+}
+
+function formatLogTimestamp(now: Date): string {
+  const pad = (value: number, length = 2) => value.toString().padStart(length, "0");
+  const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const time = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  return `${date} ${time}.${pad(now.getMilliseconds(), 3)}`;
 }
 
 /**

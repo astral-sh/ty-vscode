@@ -2,16 +2,17 @@ import * as fsapi from "fs-extra";
 import { execFile } from "node:child_process";
 import { platform } from "node:os";
 import { join, resolve } from "node:path";
+import { createInterface } from "node:readline";
+import type { Readable } from "node:stream";
 import { promisify } from "node:util";
 import * as vscode from "vscode";
 import { type Disposable, l10n, LanguageStatusSeverity, type LogOutputChannel } from "vscode";
+import { MessageType, ShowMessageNotification, State } from "vscode-languageclient";
 import {
+  LanguageClient,
   type LanguageClientOptions,
-  MessageType,
-  ShowMessageNotification,
-  State,
-} from "vscode-languageclient";
-import { LanguageClient, RevealOutputChannelOn } from "vscode-languageclient/node";
+  RevealOutputChannelOn,
+} from "vscode-languageclient/node";
 import {
   BINARY_NAME,
   BUNDLED_EXECUTABLE,
@@ -324,6 +325,9 @@ async function createServer(
     documentSelector: getDocumentSelector(),
     outputChannel,
     traceOutputChannel,
+    // ty sends LSP messages on stdout, which the client reads directly. The API requires
+    // both callbacks, but for this transport only stderr is forwarded to the channel.
+    stdioOptions: { stdout: forwardServerOutput, stderr: forwardServerOutput },
     revealOutputChannelOn: RevealOutputChannelOn.Never,
     initializationOptions,
     middleware,
@@ -338,6 +342,13 @@ async function createServer(
     binaryResolution,
     middleware,
   };
+}
+
+function forwardServerOutput(input: Readable, outputChannel: LogOutputChannel): void {
+  createInterface({ input, crlfDelay: Infinity, terminal: false, historySize: 0 }).on(
+    "line",
+    (line) => outputChannel.appendLine(line),
+  );
 }
 
 /** Get the version before initialization, when startup-only options must be filtered. */
