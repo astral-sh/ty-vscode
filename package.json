@@ -246,7 +246,7 @@
     "@vscode/python-extension": "^1.0.5",
     "anser": "^2.3.5",
     "fs-extra": "^11.3.0",
-    "vscode-languageclient": "^10.1.0",
+    "vscode-languageclient": "^10.1.1",
     "which": "^7.0.0"
   },
   "devDependencies": {
