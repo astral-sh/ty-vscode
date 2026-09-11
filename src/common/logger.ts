@@ -108,8 +108,8 @@ export const logger = new ExtensionLogger();
 /**
  * Creates a shared output channel for language client and server logs.
  *
- * Client messages follow the editor log level, while server stderr is sent to `appendLine`
- * so ty keeps its timestamps, levels, and multiline formatting. A native log channel would
+ * Client messages respect the editor log level and are reformatted to preserve timestamps and log severity in the output, while server messages are sent to `appendLine` unchanged and unfiltered
+ * so ty keeps its default timestamp, level, and multiline formatting. A native log channel would
  * also filter server logs independently of `ty.logLevel`.
  * See https://github.com/microsoft/vscode-languageserver-node/issues/1754.
  */
