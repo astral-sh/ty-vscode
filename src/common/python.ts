@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
-import { type Disposable, type Event, EventEmitter, extensions, Uri } from "vscode";
+import { type Disposable, type Event, EventEmitter, extensions, Uri, workspace } from "vscode";
 import { logger } from "./logger";
 import {
   PVSC_EXTENSION_ID as PYTHON_EXTENSION_ID,
@@ -170,6 +170,41 @@ class PythonEnvironmentExtension implements EnvironmentProvider {
 
     if (extension == null) {
       logger.info("The Python Environments extension is not installed or is disabled.");
+      return null;
+    }
+
+    // There's a bug in either the Python or Python Environment Extension where both
+    // extensions activate, but the Python Environment Extension only in a half-functioning way.
+    // See https://github.com/microsoft/vscode-python-environments/issues/1778
+    //
+    // The root cause is that the Python Environments'
+    // [activation check](https://github.com/microsoft/vscode-python-environments/blob/c8009aaa17fa51494da8efa18433e49f9ba5b6dd/src/extension.ts#L119-L149)
+    // uses `inspect` to read `useEnvironmentsExtension`, but this only returns a value explicitly set
+    // by a user, it ignores a default `false` (or `true`, depending on A/B testing).
+    //
+    // Unlike the Python Environment extension, the Python extension's
+    // [check](https://github.com/microsoft/vscode-python/blob/cb7b164d303b8a282201182ee29239f52d49ebf1/src/client/envExt/api.internal.ts#L57-L66)
+    // on whether to use the Python Environment extension uses `get` in,
+    // which respect default values, including experiment-assigned defaults.
+    //
+    // The observed behavior in a workspace where `useEnvironmentsExtension` defaults to `false`,
+    // is that both extensions activate, making it unclear which extension is authorative
+    // when it comes to Python environment management.
+    // We opt here to prefer the Python extension in this case because the Python Environment extension
+    // experience is half broken in this state, because its
+    // [`Set Project Environment` palette entry](https://github.com/microsoft/vscode-python-environments/blob/c8009aaa17fa51494da8efa18433e49f9ba5b6dd/package.json#L404-L407)
+    // remains hidden, because it uses a `when `config.python.useEnvironmentsExtension != false` condition, which,
+    // unlike `inspect`, respects defaults and A/B testing defaults.
+    //
+    // Hopefully, the upstream issue gets fixed, so that we can remove this hacky heuristic,
+    // but for now, this is probably the best we can do.
+    if (
+      !workspace.getConfiguration("python").get<boolean>("useEnvironmentsExtension", false) &&
+      (await getPythonExtension()) != null
+    ) {
+      logger.info(
+        "`useEnvironmentsExtension` defaults to `false` and the Python extension is available.",
+      );
       return null;
     }
 
