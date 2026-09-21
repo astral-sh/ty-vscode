@@ -21,7 +21,8 @@ import {
   onDidGrantWorkspaceTrust,
   registerCommand,
 } from "./common/vscodeapi";
-import { createDebugInformationProvider, createRunTestProvider } from "./common/commands";
+import { createDebugInformationProvider } from "./common/commands";
+import { TestExplorer } from "./common/testing/testExplorer";
 
 let lsClient: LanguageClient | undefined;
 let restartInProgress = false;
@@ -58,8 +59,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       `${serverId}.debugInformation`,
       createDebugInformationProvider(getClient, serverId, context),
     ),
-    registerCommand(`${serverId}.runTest`, createRunTestProvider()),
   );
+
+  const testExplorer = new TestExplorer(getClient);
+  context.subscriptions.push(testExplorer);
 
   if (restartInProgress) {
     if (!restartQueued) {
@@ -142,6 +145,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         restartQueued = false;
         await runServer();
       }
+    }
+
+    if (lsClient !== undefined) {
+      await testExplorer.discoverAll();
     }
   };
 
