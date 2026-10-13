@@ -7,6 +7,8 @@ dependencies = ["ty==0.0.86"]
 [tool.uv]
 exclude-newer = "P7D"
 exclude-newer-package = { ty = false }
+require-build-hashes = true
+preview-features = ["build-dependency-hashes"]
 
 [tool.ruff]
 line-length = 88
