@@ -20,4 +20,4 @@ target-version = "py38"
 select = ["E", "F", "W", "Q", "UP", "I", "N"]
 
 [dependency-groups]
-dev = ["ruff>=0.16.2", "ty>=0.0.69", "uv>=0.13.4"]
+dev = ["ruff>=0.16.2", "ty>=0.0.69", "uv>=0.12.3"]
