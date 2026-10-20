@@ -6,7 +6,9 @@ dependencies = ["ty==0.0.90"]
 
 [tool.uv]
 exclude-newer = "P7D"
-exclude-newer-package = { ty = false }
+# Allow uv 0.13.4 before the seven-day wait: it removes trust in the eMudhra
+# root that signed the compromised intermediate certificates.
+exclude-newer-package = { ty = false, uv = "2026-10-20T15:12:07Z" }
 
 [tool.ruff]
 line-length = 88
@@ -16,4 +18,4 @@ target-version = "py38"
 select = ["E", "F", "W", "Q", "UP", "I", "N"]
 
 [dependency-groups]
-dev = ["ruff>=0.16.2", "ty>=0.0.69", "uv>=0.12.3"]
+dev = ["ruff>=0.16.2", "ty>=0.0.69", "uv>=0.13.4"]
