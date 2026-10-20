@@ -6,7 +6,7 @@ dependencies = ["ty==0.0.90"]
 
 [tool.uv]
 exclude-newer = "P7D"
-exclude-newer-package = { ty = false }
+exclude-newer-package = { ty = false, uv = false }
 
 [tool.ruff]
 line-length = 88
