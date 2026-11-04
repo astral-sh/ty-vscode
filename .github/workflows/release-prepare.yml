@@ -5,8 +5,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Exact extension version to release, without a leading v
-        required: true
+        description: Extension version without a leading v (defaults to a minor bump of two)
+        required: false
         type: string
       ty-version:
         description: Bundled ty version (defaults to the latest version on PyPI)
@@ -42,28 +42,32 @@ jobs:
           package-manager-cache: false
 
       - name: Bump version
+        id: bump
         shell: bash
         run: |
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Invalid extension version: ${VERSION}"
-            exit 1
+          args=()
+          if [[ -n "$VERSION" ]]; then
+            if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Invalid extension version: ${VERSION}"
+              exit 1
+            fi
+            if git rev-parse --verify --quiet "refs/tags/${VERSION}" >/dev/null; then
+              echo "::error::Tag ${VERSION} already exists"
+              exit 1
+            fi
+            args+=(--new-version "$VERSION")
           fi
-          if git rev-parse --verify --quiet "refs/tags/${VERSION}" >/dev/null; then
-            echo "::error::Tag ${VERSION} already exists"
-            exit 1
-          fi
-
-          args=(--new-version "$VERSION")
           if [[ -n "$TY_VERSION" ]]; then
             args+=(--new-ty "$TY_VERSION")
           fi
           uv run --locked scripts/release.py "${args[@]}"
 
           package_version="$(node -p 'require("./package.json").version')"
-          if [[ "$package_version" != "$VERSION" ]]; then
+          if [[ -n "$VERSION" && "$package_version" != "$VERSION" ]]; then
             echo "::error::Requested version ${VERSION} was normalized to ${package_version}"
             exit 1
           fi
+          echo "version=$package_version" >> "$GITHUB_OUTPUT"
         env:
           VERSION: ${{ inputs.version }}
           TY_VERSION: ${{ inputs.ty-version }}
@@ -71,4 +75,4 @@ jobs:
       - name: Create or update pull request
         uses: astral-sh/github-actions/create-release-pr@b18ab2e0c11d16711c1818c8774babfa0203b909 # 2026.10.08.0
         with:
-          version: ${{ inputs.version }}
+          version: ${{ steps.bump.outputs.version }}
