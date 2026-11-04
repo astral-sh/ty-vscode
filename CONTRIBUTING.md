@@ -47,7 +47,7 @@ The ty server's experimental Language Server Protocol extensions are documented 
    Optionally specify the bundled ty version; it defaults to the latest version on PyPI.
 2. Review and merge the generated release PR.
 3. Run the [Release workflow](https://github.com/astral-sh/ty-vscode/actions/workflows/release.yml)
-   from `main` with the same extension version.
+   from `main`. Leave the version blank to use `package.json`, or enter the same extension version explicitly.
 4. Approve the protected `release-gate` deployment after all platform builds succeed.
 
 Odd minor versions are pre-releases and retain timestamped nightly build IDs; even minor versions are stable releases.
