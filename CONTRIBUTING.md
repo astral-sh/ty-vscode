@@ -41,8 +41,9 @@ The ty server's experimental Language Server Protocol extensions are documented 
 ## Release
 
 1. Run the [Prepare release workflow](https://github.com/astral-sh/ty-vscode/actions/workflows/release-prepare.yml)
-   from `main` with the exact extension version, without a leading `v`. The workflow runs `scripts/release.py` to update
-   the extension version, bundled ty version, README, and lockfiles.
+   from `main`. Leave the extension version blank to bump the minor version by two and reset the patch to zero,
+   or enter an exact version without a leading `v`. The workflow runs `scripts/release.py` to update the extension
+   version, bundled ty version, README, and lockfiles.
    Optionally specify the bundled ty version; it defaults to the latest version on PyPI.
 2. Review and merge the generated release PR.
 3. Run the [Release workflow](https://github.com/astral-sh/ty-vscode/actions/workflows/release.yml)
