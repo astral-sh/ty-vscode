@@ -340,6 +340,7 @@ async function createServer(
   return {
     client,
     binaryResolution,
+    activeEnvironment,
     middleware,
   };
 }
@@ -373,6 +374,8 @@ async function getTyVersion(executable: string, cwd: string): Promise<Version | 
 export type ServerState = {
   client: LanguageClient;
   binaryResolution: BinaryResolution;
+  /** The active Python environment of the project root when the server was started. */
+  activeEnvironment: PythonEnvironmentDetails | null;
   middleware: TyMiddleware;
 };
 
@@ -479,8 +482,11 @@ export async function startServer(
 
 export async function stopServer(lsClient: LanguageClient): Promise<void> {
   logger.info("Stopping ty language server.");
-  await lsClient.stop();
-  dispose();
+  try {
+    await lsClient.stop();
+  } finally {
+    dispose();
+  }
 }
 
 function dispose(): void {

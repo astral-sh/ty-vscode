@@ -4,6 +4,7 @@ import { DidChangeConfigurationNotification } from "vscode-languageclient";
 import { createServerOutputChannel, LazyOutputChannel, logger } from "./common/logger";
 import {
   getEnvironmentProvider,
+  isSameInterpreter,
   onDidChangeActivePythonEnvironment,
   OnDidChangeActivePythonEnvironmentEventArgs,
   PYTHON_EXTENSION_ID,
@@ -137,7 +138,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const runServer = async () => {
     if (serverState != null) {
-      await stopServer(serverState.client);
+      try {
+        await stopServer(serverState.client);
+      } catch (error) {
+        // The client is stopped either way (the language client kills a server that doesn't
+        // shut down in time), so start the new server instead of leaving ty without one.
+        logger.warn(`Failed to stop ${serverName} cleanly; starting a new server anyway: ${error}`);
+      }
       serverState = null;
     }
     fullDiagnosticProvider.clear();
@@ -223,6 +230,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         const changeAffectsProjectRoot =
           e.uri == null || e.uri.toString() === projectRoot.uri.toString();
 
+        const activeEnvironment = changeAffectsProjectRoot
+          ? ((await environmentProvider?.getActiveEnvironment(projectRoot.uri)) ?? null)
+          : null;
+
+        // The Python extension also fires this event when it finishes selecting the interpreter that the
+        // server was already started with. Restarting then is wasted work and can time out while the server is busy.
+        if (
+          changeAffectsProjectRoot &&
+          isSameInterpreter(activeEnvironment, serverState.activeEnvironment)
+        ) {
+          logger.info(
+            `Active Python environment is the one ${serverName} was started with; skipping restart.`,
+          );
+          return;
+        }
+
         // If this event changed the active environment of the project root AND the server used the active environment
         // to find the ty executable, then check if the ty executable still resolves to the same path. If it doesn't
         // restart the server.
@@ -232,8 +255,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           let nextBinaryResolution;
 
           try {
-            const activeEnvironment =
-              (await environmentProvider?.getActiveEnvironment(projectRoot.uri)) ?? null;
             nextBinaryResolution = await findBinaryPath(
               settings,
               environmentProvider,

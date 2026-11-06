@@ -373,6 +373,20 @@ function areEnvironmentsEqual(
   return isDeepStrictEqual(left, right);
 }
 
+/**
+ * Whether two environments resolve to the same interpreter (executable, `sys.prefix` and version).
+ */
+export function isSameInterpreter(
+  left: PythonEnvironmentDetails | null,
+  right: PythonEnvironmentDetails | null,
+): boolean {
+  return (
+    left?.executable === right?.executable &&
+    left?.sysPrefix === right?.sysPrefix &&
+    isDeepStrictEqual(left?.version, right?.version)
+  );
+}
+
 const pythonEnvironmentExtension = lazyInit(PythonEnvironmentExtension.tryActivate);
 
 async function getPythonEnvironmentExtension(): Promise<PythonEnvironmentExtension | null> {
