@@ -38,6 +38,7 @@ defaults:
 jobs:
   prepare:
     name: Prepare release PR
+    environment: prepare
     if: github.repository == 'astral-sh/ty-vscode' && github.ref == 'refs/heads/main' && (!inputs.publish-extensions || inputs.ty-version != '')
     runs-on: ubuntu-latest
     timeout-minutes: 45
