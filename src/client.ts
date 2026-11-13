@@ -63,6 +63,54 @@ export class FullDiagnosticOutputFeature implements StaticFeature {
   clear(): void {}
 }
 
+export class SupportedMarkdownHtmlFeature implements StaticFeature {
+  fillClientCapabilities(capabilities: ClientCapabilities): void {
+    capabilities.general ??= {};
+    capabilities.general.markdown ??= { parser: "marked" };
+    // VS Code supports these tags, including <b> and <i>, which the language client omits.
+    capabilities.general.markdown.allowedTags = [
+      "a",
+      "b",
+      "blockquote",
+      "br",
+      "code",
+      "del",
+      "div",
+      "em",
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "hr",
+      "i",
+      "img",
+      "li",
+      "ol",
+      "p",
+      "pre",
+      "span",
+      "strong",
+      "table",
+      "tbody",
+      "td",
+      "th",
+      "thead",
+      "tr",
+      "ul",
+    ];
+  }
+
+  initialize(): void {}
+
+  getState(): FeatureState {
+    return { kind: "static" };
+  }
+
+  clear(): void {}
+}
+
 /**
  * Advertises support for the `ty.triggerParameterHints` completion command,
  * which the extension executes by triggering VS Code's built-in parameter
