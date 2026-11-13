@@ -39,6 +39,7 @@ from rich_argparse import RawDescriptionRichHelpFormatter
 
 PYPROJECT_TOML_PATH = Path("pyproject.toml")
 PACKAGE_JSON_PATH = Path("package.json")
+PACKAGE_LOCK_JSON_PATH = Path("package-lock.json")
 README_PATH = Path("README.md")
 CHANGELOG_PATH = Path("CHANGELOG.md")
 
@@ -107,6 +108,27 @@ def get_ty_versions(
     )
 
 
+def plan_upstream_release(ty_version: str) -> None:
+    """Select the next stable extension release for a new upstream version."""
+    if not re.fullmatch(r"(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*)){2}", ty_version):
+        raise SystemExit(f"Expected a stable ty version, got {ty_version!r}")
+
+    versions = get_ty_versions(
+        new_ty_vscode_version=None, new_ty_version=Version(ty_version)
+    )
+    if versions.latest_ty < versions.existing_ty_pin:
+        return
+
+    current = versions.existing_vscode_version
+    if versions.latest_ty == versions.existing_ty_pin and current.minor % 2 == 0:
+        return
+
+    # Stable VS Code releases use even minor versions.
+    next_stable_minor = current.minor + 2 - current.minor % 2
+    print(f"version={versions.new_vscode_version.major}.{next_stable_minor}.0")
+    print("prepare=true")
+
+
 def update_pyproject_toml(versions: Versions) -> None:
     """Update metadata in `pyproject.toml`.
 
@@ -132,13 +154,13 @@ def update_pyproject_toml(versions: Versions) -> None:
 
 
 def bump_package_json_version(new_version: Version) -> None:
-    """Update the version of this package in `package.json`."""
-    with PACKAGE_JSON_PATH.open("rb") as package_json_file:
-        package_json = json.load(package_json_file)
-    package_json["version"] = str(new_version)
-    with PACKAGE_JSON_PATH.open("w") as package_json_file:
-        json.dump(package_json, package_json_file, indent=2)
-        package_json_file.write("\n")
+    """Update the extension version in the npm manifest and lockfile."""
+    for path in (PACKAGE_JSON_PATH, PACKAGE_LOCK_JSON_PATH):
+        package = json.loads(path.read_bytes())
+        package["version"] = str(new_version)
+        if path == PACKAGE_LOCK_JSON_PATH:
+            package["packages"][""]["version"] = str(new_version)
+        path.write_text(json.dumps(package, indent=2, ensure_ascii=False) + "\n")
 
 
 README_DESCRIPTION_REGEX = re.compile(
@@ -174,29 +196,41 @@ def update_readme(latest_ty: Version) -> None:
     README_PATH.write_text(readme_text)
 
 
-def lock_requirements() -> None:
-    """Update this package's lockfiles."""
-    for path in ["requirements.txt"]:
-        Path(path).unlink()
-    subprocess.run(["uv", "lock"], check=True)
-    subprocess.run(
-        [
-            "uv",
-            "export",
-            "--format",
-            "requirements-txt",
-            "--no-dev",
-            "--no-emit-project",
-            "--locked",
-            "--output-file",
-            "./requirements.txt",
-        ],
-        check=True,
-    )
-    subprocess.run(
-        ["npm", "install", "--package-lock-only", "--ignore-scripts"],
-        check=True,
-    )
+def locked_dependencies(lock: bytes) -> list[dict[str, object]]:
+    """Return the dependency records a ty version bump must preserve."""
+    dependencies = []
+    for package in tomli.loads(lock.decode("utf-8"))["package"]:
+        if package["source"] == {"virtual": "."}:
+            continue
+        if package["name"] == "ty":
+            for key in ("version", "sdist", "wheels"):
+                package.pop(key, None)
+        dependencies.append(package)
+    return dependencies
+
+
+def update_ty_requirements() -> None:
+    """Refresh ty's lock entry and export its distribution hashes for the build."""
+    lockfile = Path("uv.lock")
+    original = lockfile.read_bytes()
+    try:
+        requirements = subprocess.check_output(
+            [
+                "uv",
+                "export",
+                "--no-build",
+                "--default-index",
+                "https://pypi.org/simple",
+                "--no-dev",
+                "--no-emit-project",
+            ]
+        )
+        if locked_dependencies(lockfile.read_bytes()) != locked_dependencies(original):
+            raise SystemExit("The ty release would change other locked dependencies")
+        Path("requirements.txt").write_bytes(requirements)
+    except BaseException:
+        lockfile.write_bytes(original)
+        raise
 
 
 def commit_changes(versions: Versions) -> None:
@@ -231,7 +265,7 @@ def prepare_release(versions: Versions, *, prepare_pr: bool) -> None:
     update_pyproject_toml(versions)
     bump_package_json_version(versions.new_vscode_version)
     update_readme(versions.latest_ty)
-    lock_requirements()
+    update_ty_requirements()
     if prepare_pr:
         commit_changes(versions)
 
@@ -318,7 +352,22 @@ def main() -> None:
             "Defaults to the latest version available on PyPI."
         ),
     )
+    parser.add_argument(
+        "--plan-upstream",
+        metavar="TY_VERSION",
+        help="Print the release workflow outputs for an upstream ty release.",
+    )
     args = parser.parse_args()
+    if args.plan_upstream is not None:
+        if (
+            args.validate is not None
+            or args.prepare_pr
+            or args.new_version is not None
+            or args.new_ty is not None
+        ):
+            parser.error("--plan-upstream must be used on its own")
+        plan_upstream_release(args.plan_upstream)
+        return
     if args.validate is not None:
         if args.prepare_pr or args.new_version is not None or args.new_ty is not None:
             parser.error(

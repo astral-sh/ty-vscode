@@ -40,15 +40,26 @@ The ty server's experimental Language Server Protocol extensions are documented 
 
 ## Release
 
-1. Run the [Prepare release workflow](https://github.com/astral-sh/ty-vscode/actions/workflows/release-prepare.yml)
-   from `main`. Leave the extension version blank to bump the minor version by two and reset the patch to zero,
-   or enter an exact version without a leading `v`. The workflow runs `scripts/release.py` to update the extension
-   version, bundled ty version, README, and lockfiles.
-   Optionally specify the bundled ty version; it defaults to the latest version on PyPI.
-2. Review and merge the generated release PR.
-3. Run the [Release workflow](https://github.com/astral-sh/ty-vscode/actions/workflows/release.yml)
-   from `main`. Leave the version blank to use `package.json`, or enter the same extension version explicitly.
-4. Approve the protected `release-gate` deployment after all platform builds succeed.
+Stable ty releases start [Prepare release](https://github.com/astral-sh/ty-vscode/actions/workflows/release-prepare.yml)
+on the default branch with the upstream version and `auto-promote=true`. It opens a PR for the next even-minor
+extension version and watches its required checks for up to 30 minutes. Once they pass, the release bot
+squash-merges the prepared commit into the default branch and dispatches
+[Release](https://github.com/astral-sh/ty-vscode/actions/workflows/release.yml) with the squash commit SHA.
+If the default branch has advanced by dispatch time, Release stops before building. Otherwise, approve `release-gate` after the builds finish.
+
+Only the upstream releases bot can start an auto-promotion. Maintainers can rerun a failed preparation.
+If dispatch fails after the merge, rerun the failed dispatch job. If publication fails, rerun Release.
+For a manual release, run Prepare release on the default branch with **Auto-promote** off (the default).
+With no inputs, the release script uses its default extension version and the latest ty on PyPI.
+To prepare a specific upstream version, run
+
+```sh
+gh workflow run release-prepare.yml --repo astral-sh/ty-vscode -f ty-version=0.0.103
+```
+
+For an extension-only release or a pre-release, set the `version` input when preparing the PR.
+Review the PR, merge it, then run Release on the default branch. The extension version
+defaults to the one in `package.json`. Approve `release-gate` after the builds finish.
 
 Odd minor versions are pre-releases and retain timestamped nightly build IDs; even minor versions are stable releases.
 
