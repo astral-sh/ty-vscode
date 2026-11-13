@@ -107,6 +107,48 @@ def get_ty_versions(
     )
 
 
+def plan_upstream_release(ty_version: str) -> None:
+    """Select a stable extension release or resume publication after a merge."""
+    if not re.fullmatch(r"(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*)){2}", ty_version):
+        raise SystemExit(f"Expected a stable ty version, got {ty_version!r}")
+
+    versions = get_ty_versions(
+        new_ty_vscode_version=None, new_ty_version=Version(ty_version)
+    )
+    if versions.latest_ty < versions.existing_ty_pin:
+        return
+
+    current = versions.existing_vscode_version
+    if versions.latest_ty == versions.existing_ty_pin and current.minor % 2 == 0:
+        if subprocess.check_output(["git", "tag", "--list", str(current)]).strip():
+            return
+        # A retry after merge must still publish the commit that set this version.
+        sha = subprocess.check_output(
+            [
+                "git",
+                "log",
+                "--first-parent",
+                "-1",
+                "--format=%H",
+                "-G",
+                rf'^version = "{re.escape(str(current))}"$',
+                "--",
+                str(PYPROJECT_TOML_PATH),
+            ],
+            text=True,
+        ).strip()
+        if not sha:
+            raise SystemExit(f"Cannot find the release commit for {current}")
+        print(f"version={current}")
+        print(f"sha={sha}")
+        return
+
+    # Stable VS Code releases use even minor versions.
+    next_stable_minor = current.minor + 2 - current.minor % 2
+    print(f"version={versions.new_vscode_version.major}.{next_stable_minor}.0")
+    print("prepare=true")
+
+
 def update_pyproject_toml(versions: Versions) -> None:
     """Update metadata in `pyproject.toml`.
 
@@ -318,7 +360,22 @@ def main() -> None:
             "Defaults to the latest version available on PyPI."
         ),
     )
+    parser.add_argument(
+        "--plan-upstream",
+        metavar="TY_VERSION",
+        help="Print the release workflow outputs for an upstream ty release.",
+    )
     args = parser.parse_args()
+    if args.plan_upstream is not None:
+        if (
+            args.validate is not None
+            or args.prepare_pr
+            or args.new_version is not None
+            or args.new_ty is not None
+        ):
+            parser.error("--plan-upstream must be used on its own")
+        plan_upstream_release(args.plan_upstream)
+        return
     if args.validate is not None:
         if args.prepare_pr or args.new_version is not None or args.new_ty is not None:
             parser.error(

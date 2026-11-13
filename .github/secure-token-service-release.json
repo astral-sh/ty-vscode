@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "repositories": {
+    "ty": {
+      "name": "astral-sh/ty",
+      "id": 976731654,
+      "oidc_subject": "legacy"
+    },
+    "ty-vscode": {
+      "name": "astral-sh/ty-vscode",
+      "id": 978421923,
+      "oidc_subject": "legacy"
+    }
+  },
+  "rules": [
+    {
+      "caller": "ty",
+      "environment": "release",
+      "caller_workflow": "release.yml",
+      "reusable_workflow": "notify-dependents.yml",
+      "on": ["workflow_dispatch"],
+      "permissions": { "actions": "write" },
+      "target": "ty-vscode"
+    },
+    {
+      "caller": "ty-vscode",
+      "caller_workflow": "release.yml",
+      "on": ["workflow_dispatch"],
+      "permissions": { "contents": "write", "pull_requests": "write" },
+      "target": "ty-vscode"
+    }
+  ]
+}
