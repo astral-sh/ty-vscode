@@ -40,25 +40,24 @@ The ty server's experimental Language Server Protocol extensions are documented 
 
 ## Release
 
-A stable ty release starts the [Release workflow](https://github.com/astral-sh/ty-vscode/actions/workflows/release.yml)
-on `main` with the released `ty-version` and `publish-extensions=true`. It prepares the next even-minor
-extension version, updates the bundled ty pin, README, and lockfiles, then opens a PR. Once CI and
-zizmor pass, it squash-merges the tested commit and dispatches the same workflow to publish that
-commit. Approve `release-gate` after the platform builds finish. If `main` moved before the
-publication run started, review the intervening changes before retrying publication.
+Stable ty releases start [Prepare release](https://github.com/astral-sh/ty-vscode/actions/workflows/release-prepare.yml)
+on `main` with the upstream version and `auto-promote=true`. It opens a PR for the next even-minor
+extension version, waits for CI and zizmor, then squash-merges the tested PR and starts
+[Release](https://github.com/astral-sh/ty-vscode/actions/workflows/release.yml) with the merge SHA.
+Approve `release-gate` after the builds finish. If `main` advances before Release starts, review
+the intervening changes before running Release manually on the new commit.
 
-To prepare a release manually, run the workflow on `main` with **Publish extensions** unchecked
-(the default). With no inputs, the release script increases the minor version by two and bundles
-the latest ty from PyPI. To prepare a particular upstream version, pass just its version number:
+For a manual release, run Prepare release on `main`. **Auto-promote** defaults to off, so the workflow
+stops after opening the PR. With no inputs, the release script uses its default extension version
+and the latest ty on PyPI. To prepare a specific upstream version, run
 
 ```sh
-gh workflow run release.yml --repo astral-sh/ty-vscode --ref main -f ty-version=0.0.103
+gh workflow run release-prepare.yml --repo astral-sh/ty-vscode --ref main -f ty-version=0.0.103
 ```
 
-For an extension-only release or a pre-release, enter the desired extension version when preparing
-the PR. Review and merge the PR, then run the workflow again with **Publish extensions** checked
-and the bundled ty version blank. The extension version defaults to the one in `package.json`.
-Approve `release-gate` after the builds finish.
+For an extension-only release or a pre-release, set the `version` input when preparing the PR.
+Review the PR, merge it, then run Release on `main`. The extension version
+defaults to the one in `package.json`. Approve `release-gate` after the builds finish.
 
 Odd minor versions are pre-releases and retain timestamped nightly build IDs; even minor versions are stable releases.
 
