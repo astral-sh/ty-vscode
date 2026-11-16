@@ -27,11 +27,15 @@
       "environment": "prepare",
       "caller_workflow": "release-prepare.yml",
       "on": ["workflow_dispatch"],
-      "permissions": {
-        "actions": "write",
-        "contents": "write",
-        "pull_requests": "write"
-      },
+      "permissions": { "contents": "write", "pull_requests": "write" },
+      "target": "ty-vscode"
+    },
+    {
+      "caller": "ty-vscode",
+      "environment": "release-dispatch",
+      "caller_workflow": "release-prepare.yml",
+      "on": ["workflow_dispatch"],
+      "permissions": { "actions": "write" },
       "target": "ty-vscode"
     }
   ]
