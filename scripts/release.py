@@ -4,7 +4,7 @@ Script for automating changes necessary for `ty-vscode` releases.
 This script does the following things:
 - Bumps the version of this project in `pyproject.toml` and `package.json`
 - Bumps the `ty` dependency pin in `pyproject.toml`
-- Updates the changelog and README
+- Updates the README
 - Updates the package's lockfiles
 
 Use --validate VERSION to check an existing release without modifying files.
@@ -39,8 +39,8 @@ from rich_argparse import RawDescriptionRichHelpFormatter
 
 PYPROJECT_TOML_PATH = Path("pyproject.toml")
 PACKAGE_JSON_PATH = Path("package.json")
+PACKAGE_LOCK_JSON_PATH = Path("package-lock.json")
 README_PATH = Path("README.md")
-CHANGELOG_PATH = Path("CHANGELOG.md")
 
 
 @dataclass(frozen=True)
@@ -69,23 +69,47 @@ def latest_pypi_version(project_name: str) -> Version:
     return Version(pypi_json.json()["info"]["version"])
 
 
+def current_versions() -> tuple[Version, Version]:
+    """Read the checked-in extension version and bundled ty pin."""
+    with PYPROJECT_TOML_PATH.open("rb") as pyproject_file:
+        project = tomli.load(pyproject_file)["project"]
+
+    dependencies = {
+        requirement.name: requirement.specifier
+        for requirement in map(Requirement, project["dependencies"])
+    }
+    return Version(project["version"]), existing_dependency_pin(dependencies, "ty")
+
+
+def next_extension_version(current: Version, *, stable: bool = False) -> Version:
+    minor = current.minor + 2
+    if stable:
+        minor -= minor % 2
+    return Version(f"{dt.datetime.now(dt.timezone.utc).year}.{minor}.0")
+
+
+def plan_release(version: str, upstream: str) -> Version | None:
+    """Select the extension version for these dispatch inputs, or skip the release."""
+    if version:
+        return parse_exact_version(version, "extension")
+
+    current, pin = current_versions()
+    if upstream:
+        requested = parse_exact_version(upstream, "ty")
+        if requested < pin or (requested == pin and current.minor % 2 == 0):
+            return None
+    return next_extension_version(current, stable=bool(upstream))
+
+
 def get_ty_versions(
     *,
     new_ty_vscode_version: Version | None,
     new_ty_version: Version | None,
 ) -> Versions:
-    """
-    Obtain metadata about the project; figure out what the new metadata should be.
-    """
-    with PYPROJECT_TOML_PATH.open("rb") as pyproject_file:
-        pyproject_toml = tomli.load(pyproject_file)
-
-    existing_ty_vscode_version = Version(pyproject_toml["project"]["version"])
+    existing_ty_vscode_version, pin = current_versions()
 
     if new_ty_vscode_version is None:
-        major = dt.datetime.now(dt.timezone.utc).year
-        minor = existing_ty_vscode_version.minor + 2
-        new_ty_vscode_version = Version(f"{major}.{minor}.0")
+        new_ty_vscode_version = next_extension_version(existing_ty_vscode_version)
 
     if new_ty_vscode_version <= existing_ty_vscode_version:
         raise SystemExit(
@@ -94,15 +118,10 @@ def get_ty_versions(
         )
     validate_version_increase(new_ty_vscode_version)
 
-    dependencies = {
-        requirement.name: requirement.specifier
-        for requirement in map(Requirement, pyproject_toml["project"]["dependencies"])
-    }
-
     return Versions(
         existing_vscode_version=existing_ty_vscode_version,
         new_vscode_version=new_ty_vscode_version,
-        existing_ty_pin=existing_dependency_pin(dependencies, "ty"),
+        existing_ty_pin=pin,
         latest_ty=(new_ty_version or latest_pypi_version("ty")),
     )
 
@@ -132,13 +151,13 @@ def update_pyproject_toml(versions: Versions) -> None:
 
 
 def bump_package_json_version(new_version: Version) -> None:
-    """Update the version of this package in `package.json`."""
-    with PACKAGE_JSON_PATH.open("rb") as package_json_file:
-        package_json = json.load(package_json_file)
-    package_json["version"] = str(new_version)
-    with PACKAGE_JSON_PATH.open("w") as package_json_file:
-        json.dump(package_json, package_json_file, indent=2)
-        package_json_file.write("\n")
+    """Update the extension version in the npm manifest and lockfile."""
+    for path in (PACKAGE_JSON_PATH, PACKAGE_LOCK_JSON_PATH):
+        package = json.loads(path.read_bytes())
+        package["version"] = str(new_version)
+        if path == PACKAGE_LOCK_JSON_PATH:
+            package["packages"][""]["version"] = str(new_version)
+        path.write_text(json.dumps(package, indent=2, ensure_ascii=False) + "\n")
 
 
 README_DESCRIPTION_REGEX = re.compile(
@@ -174,29 +193,41 @@ def update_readme(latest_ty: Version) -> None:
     README_PATH.write_text(readme_text)
 
 
-def lock_requirements() -> None:
-    """Update this package's lockfiles."""
-    for path in ["requirements.txt"]:
-        Path(path).unlink()
-    subprocess.run(["uv", "lock"], check=True)
-    subprocess.run(
-        [
-            "uv",
-            "export",
-            "--format",
-            "requirements-txt",
-            "--no-dev",
-            "--no-emit-project",
-            "--locked",
-            "--output-file",
-            "./requirements.txt",
-        ],
-        check=True,
-    )
-    subprocess.run(
-        ["npm", "install", "--package-lock-only", "--ignore-scripts"],
-        check=True,
-    )
+def locked_dependencies(lock: bytes) -> list[dict[str, object]]:
+    """Return the dependency records a ty version bump must preserve."""
+    dependencies = []
+    for package in tomli.loads(lock.decode("utf-8"))["package"]:
+        if package["source"] == {"virtual": "."}:
+            continue
+        if package["name"] == "ty":
+            for key in ("version", "sdist", "wheels"):
+                package.pop(key, None)
+        dependencies.append(package)
+    return dependencies
+
+
+def update_ty_requirements() -> None:
+    """Refresh ty's lock entry and export its distribution hashes for the build."""
+    lockfile = Path("uv.lock")
+    original = lockfile.read_bytes()
+    try:
+        requirements = subprocess.check_output(
+            [
+                "uv",
+                "export",
+                "--no-build",
+                "--default-index",
+                "https://pypi.org/simple",
+                "--no-dev",
+                "--no-emit-project",
+            ]
+        )
+        if locked_dependencies(lockfile.read_bytes()) != locked_dependencies(original):
+            raise SystemExit("The ty release would change other locked dependencies")
+        Path("requirements.txt").write_bytes(requirements)
+    except BaseException:
+        lockfile.write_bytes(original)
+        raise
 
 
 def commit_changes(versions: Versions) -> None:
@@ -231,7 +262,7 @@ def prepare_release(versions: Versions, *, prepare_pr: bool) -> None:
     update_pyproject_toml(versions)
     bump_package_json_version(versions.new_vscode_version)
     update_readme(versions.latest_ty)
-    lock_requirements()
+    update_ty_requirements()
     if prepare_pr:
         commit_changes(versions)
 
@@ -255,16 +286,21 @@ def validate_version_increase(version: Version) -> None:
         )
 
 
-def validate_release(version: str) -> bool:
-    """Validate release metadata and return whether this is a pre-release."""
+def parse_exact_version(version: str, project: str) -> Version:
     if not VERSION_REGEX.fullmatch(version):
-        raise SystemExit(f"Invalid extension version: {version!r}")
+        raise SystemExit(f"Invalid {project} version: {version!r}")
 
     parsed_version = Version(version)
     if str(parsed_version) != version:
         raise SystemExit(
-            f"Requested version {version} was normalized to {parsed_version}"
+            f"Requested {project} version {version} was normalized to {parsed_version}"
         )
+    return parsed_version
+
+
+def validate_release(version: str) -> bool:
+    """Validate release metadata and return whether this is a pre-release."""
+    parsed_version = parse_exact_version(version, "extension")
 
     with PACKAGE_JSON_PATH.open("rb") as package_file:
         package = json.load(package_file)
@@ -307,7 +343,8 @@ def main() -> None:
         type=Version,
         help=(
             "The version to set for this release. "
-            "Defaults to `${CURRENT_MAJOR}.${CURRENT_MINOR + 2}.0`"
+            "Defaults to the current UTC year, the checked-in minor plus two, "
+            "and patch zero."
         ),
     )
     parser.add_argument(
@@ -318,7 +355,28 @@ def main() -> None:
             "Defaults to the latest version available on PyPI."
         ),
     )
+    parser.add_argument(
+        "--plan-version",
+        nargs=2,
+        metavar=("EXTENSION_VERSION", "TY_VERSION"),
+        help=(
+            "Select an extension version from the two workflow inputs. "
+            "Pass an empty string for each unspecified input."
+        ),
+    )
     args = parser.parse_args()
+    if args.plan_version is not None:
+        if (
+            args.validate is not None
+            or args.prepare_pr
+            or args.new_version is not None
+            or args.new_ty is not None
+        ):
+            parser.error("--plan-version must be used on its own")
+        version = plan_release(*args.plan_version)
+        if version is not None:
+            print(f"version={version}")
+        return
     if args.validate is not None:
         if args.prepare_pr or args.new_version is not None or args.new_ty is not None:
             parser.error(

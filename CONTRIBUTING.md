@@ -40,15 +40,31 @@ The ty server's experimental Language Server Protocol extensions are documented 
 
 ## Release
 
-1. Run the [Prepare release workflow](https://github.com/astral-sh/ty-vscode/actions/workflows/release-prepare.yml)
-   from `main`. Leave the extension version blank to bump the minor version by two and reset the patch to zero,
-   or enter an exact version without a leading `v`. The workflow runs `scripts/release.py` to update the extension
-   version, bundled ty version, README, and lockfiles.
-   Optionally specify the bundled ty version; it defaults to the latest version on PyPI.
-2. Review and merge the generated release PR.
-3. Run the [Release workflow](https://github.com/astral-sh/ty-vscode/actions/workflows/release.yml)
-   from `main`. Leave the version blank to use `package.json`, or enter the same extension version explicitly.
-4. Approve the protected `release-gate` deployment after all platform builds succeed.
+Stable ty releases start [Prepare release](https://github.com/astral-sh/ty-vscode/actions/workflows/release-prepare.yml)
+on the default branch with `auto-promote=true`. Only the upstream releases bot can start an auto-promotion.
+Prepare skips older upstream versions and versions already pinned in a stable extension. Otherwise it opens a PR
+for the next even minor version and enables GitHub auto-merge. GitHub squash-merges it when the branch protection
+requirements are met. The merge listener dispatches [Release](https://github.com/astral-sh/ty-vscode/actions/workflows/release.yml)
+with the PR number. Release verifies the merged PR and builds from its squash commit. After the builds finish,
+approve `release-gate` to publish.
+
+Before enabling auto-promotion, apply the organization rulesets for `release/auto/*`. They reserve branch creation
+for the releases bot and block updates, keeping the prepared commit fixed while GitHub waits to merge. GitHub
+can still delete the branch after merge. The Prepare workflow checks for the update restriction before pushing.
+
+### Manual releases
+
+Run Prepare release on the default branch with `auto-promote` off (the default). With no inputs, it bundles
+the latest ty on PyPI and sets the extension version to `<UTC year>.<current minor + 2>.0`.
+To prepare a specific upstream release, replace `<upstream-version>` with its version number.
+
+```sh
+gh workflow run release-prepare.yml --repo astral-sh/ty-vscode -f ty-version='<upstream-version>'
+```
+
+For an extension-only release or a pre-release, set the `version` input when preparing the PR.
+Review and merge the PR. Start Release on the default branch from your personal GitHub account.
+The extension version defaults to the one in `package.json`. Approve `release-gate` after the builds finish.
 
 Odd minor versions are pre-releases and retain timestamped nightly build IDs; even minor versions are stable releases.
 
@@ -58,3 +74,16 @@ After both publications succeed, the workflow creates the `<version>` tag and Gi
 minor versions as pre-releases. Review and curate the generated GitHub release notes as needed.
 
 It may take a few minutes after the workflow completes for the extension to be available.
+
+### Retrying a release
+
+- If preparation fails before pushing the branch, rerun the failed job in Prepare release.
+- If an automated release PR is behind the default branch or preparation fails after pushing
+  `release/auto/<version>`, close the PR if it exists and delete that branch before rerunning Prepare release.
+- If Prepare reports a conflicting release PR for the same version, resolve that PR before rerunning.
+- If the merge listener fails to dispatch Release, rerun it or start Release from your personal GitHub
+  account with the merged PR number as `release-pr`.
+- If the default branch advances between merge and dispatch, review the intervening changes and start
+  Release manually without `release-pr`. Set `version` to the intended extension version and `expected-sha`
+  to the default branch commit you reviewed.
+- If a build or publish job fails, rerun the failed jobs in the original Release run.
