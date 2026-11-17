@@ -69,23 +69,47 @@ def latest_pypi_version(project_name: str) -> Version:
     return Version(pypi_json.json()["info"]["version"])
 
 
+def current_versions() -> tuple[Version, Version]:
+    """Read the checked-in extension version and bundled ty pin."""
+    with PYPROJECT_TOML_PATH.open("rb") as pyproject_file:
+        project = tomli.load(pyproject_file)["project"]
+
+    dependencies = {
+        requirement.name: requirement.specifier
+        for requirement in map(Requirement, project["dependencies"])
+    }
+    return Version(project["version"]), existing_dependency_pin(dependencies, "ty")
+
+
+def next_extension_version(current: Version, *, stable: bool = False) -> Version:
+    minor = current.minor + 2
+    if stable:
+        minor -= minor % 2
+    return Version(f"{dt.datetime.now(dt.timezone.utc).year}.{minor}.0")
+
+
+def plan_release(version: str, upstream: str) -> Version | None:
+    """Select the extension version for these dispatch inputs, or skip the release."""
+    if version:
+        return parse_exact_version(version, "extension")
+
+    current, pin = current_versions()
+    if upstream:
+        requested = parse_exact_version(upstream, "ty")
+        if requested < pin or (requested == pin and current.minor % 2 == 0):
+            return None
+    return next_extension_version(current, stable=bool(upstream))
+
+
 def get_ty_versions(
     *,
     new_ty_vscode_version: Version | None,
     new_ty_version: Version | None,
 ) -> Versions:
-    """
-    Obtain metadata about the project; figure out what the new metadata should be.
-    """
-    with PYPROJECT_TOML_PATH.open("rb") as pyproject_file:
-        pyproject_toml = tomli.load(pyproject_file)
-
-    existing_ty_vscode_version = Version(pyproject_toml["project"]["version"])
+    existing_ty_vscode_version, pin = current_versions()
 
     if new_ty_vscode_version is None:
-        major = dt.datetime.now(dt.timezone.utc).year
-        minor = existing_ty_vscode_version.minor + 2
-        new_ty_vscode_version = Version(f"{major}.{minor}.0")
+        new_ty_vscode_version = next_extension_version(existing_ty_vscode_version)
 
     if new_ty_vscode_version <= existing_ty_vscode_version:
         raise SystemExit(
@@ -94,38 +118,12 @@ def get_ty_versions(
         )
     validate_version_increase(new_ty_vscode_version)
 
-    dependencies = {
-        requirement.name: requirement.specifier
-        for requirement in map(Requirement, pyproject_toml["project"]["dependencies"])
-    }
-
     return Versions(
         existing_vscode_version=existing_ty_vscode_version,
         new_vscode_version=new_ty_vscode_version,
-        existing_ty_pin=existing_dependency_pin(dependencies, "ty"),
+        existing_ty_pin=pin,
         latest_ty=(new_ty_version or latest_pypi_version("ty")),
     )
-
-
-def plan_upstream_release(ty_version: str) -> None:
-    """Select the next stable extension release for a new upstream version."""
-    if not re.fullmatch(r"(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*)){2}", ty_version):
-        raise SystemExit(f"Expected a stable ty version, got {ty_version!r}")
-
-    versions = get_ty_versions(
-        new_ty_vscode_version=None, new_ty_version=Version(ty_version)
-    )
-    if versions.latest_ty < versions.existing_ty_pin:
-        return
-
-    current = versions.existing_vscode_version
-    if versions.latest_ty == versions.existing_ty_pin and current.minor % 2 == 0:
-        return
-
-    # Stable VS Code releases use even minor versions.
-    next_stable_minor = current.minor + 2 - current.minor % 2
-    print(f"version={versions.new_vscode_version.major}.{next_stable_minor}.0")
-    print("prepare=true")
 
 
 def update_pyproject_toml(versions: Versions) -> None:
@@ -288,16 +286,21 @@ def validate_version_increase(version: Version) -> None:
         )
 
 
-def validate_release(version: str) -> bool:
-    """Validate release metadata and return whether this is a pre-release."""
+def parse_exact_version(version: str, project: str) -> Version:
     if not VERSION_REGEX.fullmatch(version):
-        raise SystemExit(f"Invalid extension version: {version!r}")
+        raise SystemExit(f"Invalid {project} version: {version!r}")
 
     parsed_version = Version(version)
     if str(parsed_version) != version:
         raise SystemExit(
-            f"Requested version {version} was normalized to {parsed_version}"
+            f"Requested {project} version {version} was normalized to {parsed_version}"
         )
+    return parsed_version
+
+
+def validate_release(version: str) -> bool:
+    """Validate release metadata and return whether this is a pre-release."""
+    parsed_version = parse_exact_version(version, "extension")
 
     with PACKAGE_JSON_PATH.open("rb") as package_file:
         package = json.load(package_file)
@@ -353,20 +356,26 @@ def main() -> None:
         ),
     )
     parser.add_argument(
-        "--plan-upstream",
-        metavar="TY_VERSION",
-        help="Print the release workflow outputs for an upstream ty release.",
+        "--plan-version",
+        nargs=2,
+        metavar=("EXTENSION_VERSION", "TY_VERSION"),
+        help=(
+            "Select an extension version from the two workflow inputs. "
+            "Pass an empty string for each unspecified input."
+        ),
     )
     args = parser.parse_args()
-    if args.plan_upstream is not None:
+    if args.plan_version is not None:
         if (
             args.validate is not None
             or args.prepare_pr
             or args.new_version is not None
             or args.new_ty is not None
         ):
-            parser.error("--plan-upstream must be used on its own")
-        plan_upstream_release(args.plan_upstream)
+            parser.error("--plan-version must be used on its own")
+        version = plan_release(*args.plan_version)
+        if version is not None:
+            print(f"version={version}")
         return
     if args.validate is not None:
         if args.prepare_pr or args.new_version is not None or args.new_ty is not None:
