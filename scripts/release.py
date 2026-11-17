@@ -4,7 +4,7 @@ Script for automating changes necessary for `ty-vscode` releases.
 This script does the following things:
 - Bumps the version of this project in `pyproject.toml` and `package.json`
 - Bumps the `ty` dependency pin in `pyproject.toml`
-- Updates the changelog and README
+- Updates the README
 - Updates the package's lockfiles
 
 Use --validate VERSION to check an existing release without modifying files.
@@ -41,7 +41,6 @@ PYPROJECT_TOML_PATH = Path("pyproject.toml")
 PACKAGE_JSON_PATH = Path("package.json")
 PACKAGE_LOCK_JSON_PATH = Path("package-lock.json")
 README_PATH = Path("README.md")
-CHANGELOG_PATH = Path("CHANGELOG.md")
 
 
 @dataclass(frozen=True)
@@ -341,7 +340,8 @@ def main() -> None:
         type=Version,
         help=(
             "The version to set for this release. "
-            "Defaults to `${CURRENT_MAJOR}.${CURRENT_MINOR + 2}.0`"
+            "Defaults to the current UTC year, the checked-in minor plus two, "
+            "and patch zero."
         ),
     )
     parser.add_argument(
