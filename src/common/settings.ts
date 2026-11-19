@@ -5,6 +5,7 @@ import type {
   WorkspaceFolder,
 } from "vscode";
 import * as vscode from "vscode";
+import * as path from "path";
 import { getConfiguration, getWorkspaceFolders } from "./vscodeapi";
 import { logger } from "./logger";
 
@@ -43,10 +44,12 @@ export function resolveVariables(
   }
   if (workspace) {
     substitutions.set("${workspaceFolder}", workspace.uri.fsPath);
+    substitutions.set("${workspaceFolderBasename}", path.basename(workspace.uri.fsPath));
   }
   substitutions.set("${cwd}", process.cwd());
   getWorkspaceFolders().forEach((w) => {
     substitutions.set("${workspaceFolder:" + w.name + "}", w.uri.fsPath);
+    substitutions.set("${workspaceFolderBasename:" + w.name + "}", path.basename(w.uri.fsPath));
   });
   for (const [key, value] of Object.entries(process.env)) {
     if (value !== undefined) {
