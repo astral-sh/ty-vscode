@@ -29,6 +29,7 @@ import which = require("which");
 import {
   createTyMiddleware,
   FullDiagnosticOutputFeature,
+  SupportedMarkdownHtmlFeature,
   TriggerParameterHintsFeature,
   type TyMiddleware,
 } from "../client";
@@ -330,11 +331,13 @@ async function createServer(
     stdioOptions: { stdout: forwardServerOutput, stderr: forwardServerOutput },
     revealOutputChannelOn: RevealOutputChannelOn.Never,
     initializationOptions,
+    markdown: { supportHtml: true },
     middleware,
   };
 
   const client = new LanguageClient(serverId, serverName, serverOptions, clientOptions);
   client.registerFeature(new FullDiagnosticOutputFeature());
+  client.registerFeature(new SupportedMarkdownHtmlFeature());
   client.registerFeature(new TriggerParameterHintsFeature());
 
   return {
