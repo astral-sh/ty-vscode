@@ -28,7 +28,6 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Final
 
 import requests
@@ -211,18 +210,14 @@ def locked_dependencies(lock: bytes) -> list[dict[str, object]]:
 
 
 def update_ty_requirements() -> None:
-    """Refresh uv.lock and write requirements.txt after verifying the ty wheel."""
+    """Refresh ty's lock entry and export its distribution hashes for the build."""
     lockfile = Path("uv.lock")
     original = lockfile.read_bytes()
-    original_dependencies = locked_dependencies(original)
-    # PyPI advertises ten minutes of freshness for Simple index responses
-    # (see the Cache-Control header at https://pypi.org/simple/ty/).
-    # Allow a listing cached before the upload to expire before the final attempt.
+    # A PyPI index response cached before the upload can stay fresh for ten minutes.
     retry_delays = (10, 20, 40, 60, 90, 120, 120, 180)
     max_attempts = len(retry_delays) + 1
     try:
         for attempt in range(1, max_attempts + 1):
-            operation = "uv export"
             try:
                 requirements = subprocess.check_output(
                     [
@@ -237,48 +232,24 @@ def update_ty_requirements() -> None:
                         "ty",
                     ]
                 )
-                if locked_dependencies(lockfile.read_bytes()) != original_dependencies:
-                    raise SystemExit(
-                        "The ty release would change other locked dependencies"
-                    )
-                with TemporaryDirectory(prefix="ty-release-check-") as target:
-                    operation = "uv pip sync"
-                    subprocess.run(
-                        [
-                            "uv",
-                            "pip",
-                            "sync",
-                            "--no-cache",
-                            "--no-build",
-                            "--default-index",
-                            PYPI_INDEX,
-                            "--require-hashes",
-                            "--target",
-                            target,
-                            "-",
-                        ],
-                        input=requirements,
-                        check=True,
-                    )
+                break
             except subprocess.CalledProcessError as error:
                 if attempt == max_attempts:
                     raise SystemExit(
-                        "Could not lock and install the bundled ty wheel "
-                        f"after {max_attempts} attempts. The last {operation} failed."
+                        f"uv export failed after {max_attempts} attempts."
                     ) from error
-                # A successful export can change uv.lock before an install fails.
-                # Restore it so the next attempt resolves the new pin again.
                 lockfile.write_bytes(original)
                 retry_delay = retry_delays[attempt - 1]
                 print(
-                    f"{operation} failed. Retrying in {retry_delay} seconds "
+                    f"uv export failed. Retrying in {retry_delay} seconds "
                     f"(attempt {attempt + 1}/{max_attempts}).",
                     flush=True,
                 )
                 time.sleep(retry_delay)
-            else:
-                Path("requirements.txt").write_bytes(requirements)
-                return
+
+        if locked_dependencies(lockfile.read_bytes()) != locked_dependencies(original):
+            raise SystemExit("The ty release would change other locked dependencies")
+        Path("requirements.txt").write_bytes(requirements)
     except BaseException:
         lockfile.write_bytes(original)
         raise
