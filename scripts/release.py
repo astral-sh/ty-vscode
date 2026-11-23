@@ -215,7 +215,8 @@ def update_ty_requirements() -> None:
     lockfile = Path("uv.lock")
     original = lockfile.read_bytes()
     original_dependencies = locked_dependencies(original)
-    # PyPI advertises ten minutes of freshness for Simple index responses.
+    # PyPI advertises ten minutes of freshness for Simple index responses
+    # (see the Cache-Control header at https://pypi.org/simple/ty/).
     # Allow a listing cached before the upload to expire before the final attempt.
     retry_delays = (10, 20, 40, 60, 90, 120, 120, 180)
     max_attempts = len(retry_delays) + 1
