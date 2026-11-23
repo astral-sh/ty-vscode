@@ -117,25 +117,6 @@ jobs:
           uv run --locked scripts/release.py "${args[@]}"
           uv run --locked scripts/release.py --validate "$VERSION"
 
-      - name: Wait for the bundled ty wheel on PyPI
-        if: steps.plan.outputs.version != ''
-        run: |
-          # CI for the release PR installs ty from requirements.txt. Bypass
-          # uv's cache to verify the pinned wheel can be downloaded from PyPI.
-          max_attempts=10
-          for ((attempt = 1; attempt <= max_attempts; attempt++)); do
-            if uv pip sync --no-cache --require-hashes ./requirements.txt \
-              --target "$RUNNER_TEMP/ty-release-check"; then
-              exit 0
-            fi
-            if ((attempt < max_attempts)); then
-              echo "Retrying the bundled ty install in 10 seconds (attempt $((attempt + 1))/$max_attempts)."
-              sleep 10
-            fi
-          done
-          echo "::error::Could not install the bundled ty wheel from PyPI after $max_attempts attempts."
-          exit 1
-
       - name: Get release PR token
         id: token
         if: steps.plan.outputs.version != ''

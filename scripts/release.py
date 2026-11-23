@@ -25,8 +25,11 @@ import datetime as dt
 import json
 import re
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import Final
 
 import requests
 import tomli
@@ -37,10 +40,11 @@ from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 from rich_argparse import RawDescriptionRichHelpFormatter
 
-PYPROJECT_TOML_PATH = Path("pyproject.toml")
-PACKAGE_JSON_PATH = Path("package.json")
-PACKAGE_LOCK_JSON_PATH = Path("package-lock.json")
-README_PATH = Path("README.md")
+PYPROJECT_TOML_PATH: Final = Path("pyproject.toml")
+PACKAGE_JSON_PATH: Final = Path("package.json")
+PACKAGE_LOCK_JSON_PATH: Final = Path("package-lock.json")
+README_PATH: Final = Path("README.md")
+PYPI_INDEX: Final = "https://pypi.org/simple"
 
 
 @dataclass(frozen=True)
@@ -207,24 +211,73 @@ def locked_dependencies(lock: bytes) -> list[dict[str, object]]:
 
 
 def update_ty_requirements() -> None:
-    """Refresh ty's lock entry and export its distribution hashes for the build."""
+    """Refresh uv.lock and write requirements.txt after verifying the ty wheel."""
     lockfile = Path("uv.lock")
     original = lockfile.read_bytes()
+    original_dependencies = locked_dependencies(original)
+    # PyPI advertises ten minutes of freshness for Simple index responses.
+    # Allow a listing cached before the upload to expire before the final attempt.
+    retry_delays = (10, 20, 40, 60, 90, 120, 120, 180)
+    max_attempts = len(retry_delays) + 1
     try:
-        requirements = subprocess.check_output(
-            [
-                "uv",
-                "export",
-                "--no-build",
-                "--default-index",
-                "https://pypi.org/simple",
-                "--no-dev",
-                "--no-emit-project",
-            ]
-        )
-        if locked_dependencies(lockfile.read_bytes()) != locked_dependencies(original):
-            raise SystemExit("The ty release would change other locked dependencies")
-        Path("requirements.txt").write_bytes(requirements)
+        for attempt in range(1, max_attempts + 1):
+            operation = "uv export"
+            try:
+                requirements = subprocess.check_output(
+                    [
+                        "uv",
+                        "export",
+                        "--no-build",
+                        "--default-index",
+                        PYPI_INDEX,
+                        "--no-dev",
+                        "--no-emit-project",
+                        "--refresh-package",
+                        "ty",
+                    ]
+                )
+                if locked_dependencies(lockfile.read_bytes()) != original_dependencies:
+                    raise SystemExit(
+                        "The ty release would change other locked dependencies"
+                    )
+                with TemporaryDirectory(prefix="ty-release-check-") as target:
+                    operation = "uv pip sync"
+                    subprocess.run(
+                        [
+                            "uv",
+                            "pip",
+                            "sync",
+                            "--no-cache",
+                            "--no-build",
+                            "--default-index",
+                            PYPI_INDEX,
+                            "--require-hashes",
+                            "--target",
+                            target,
+                            "-",
+                        ],
+                        input=requirements,
+                        check=True,
+                    )
+            except subprocess.CalledProcessError as error:
+                if attempt == max_attempts:
+                    raise SystemExit(
+                        "Could not lock and install the bundled ty wheel "
+                        f"after {max_attempts} attempts. The last {operation} failed."
+                    ) from error
+                # A successful export can change uv.lock before an install fails.
+                # Restore it so the next attempt resolves the new pin again.
+                lockfile.write_bytes(original)
+                retry_delay = retry_delays[attempt - 1]
+                print(
+                    f"{operation} failed. Retrying in {retry_delay} seconds "
+                    f"(attempt {attempt + 1}/{max_attempts}).",
+                    flush=True,
+                )
+                time.sleep(retry_delay)
+            else:
+                Path("requirements.txt").write_bytes(requirements)
+                return
     except BaseException:
         lockfile.write_bytes(original)
         raise
@@ -259,10 +312,15 @@ def commit_changes(versions: Versions) -> None:
 
 def prepare_release(versions: Versions, *, prepare_pr: bool) -> None:
     """Make all necessary changes for a new `ty-vscode` release."""
-    update_pyproject_toml(versions)
+    original_pyproject = PYPROJECT_TOML_PATH.read_bytes()
+    try:
+        update_pyproject_toml(versions)
+        update_ty_requirements()
+    except BaseException:
+        PYPROJECT_TOML_PATH.write_bytes(original_pyproject)
+        raise
     bump_package_json_version(versions.new_vscode_version)
     update_readme(versions.latest_ty)
-    update_ty_requirements()
     if prepare_pr:
         commit_changes(versions)
 
